@@ -21,7 +21,6 @@ IEEE Access 4, pp. 2110-2122 (2016) doi:10.1109/ACCESS.2016.2556579
 #This code requires the following packages
 import numpy as np
 
-
 class TaskEnvironment(object):
     """Grid world environment: a two-dimensional, discrete 'maze'
     which contains rewards in well-defined places and possibly walls that constrain 
@@ -39,19 +38,18 @@ class TaskEnvironment(object):
             [+1,0],[0,+1],[-1,0],[0,-1], #em uma direção            
             ]  #hard-code which action indices correspond to which movements in terms of x,y changes
         
-        # each position in the walls array contains a nested list of forbidden moves.
-        #The first entry refers to forbidden x moves, the second to y.
+        # each position in the walls array contains a nested list of forbidden places.
+        #The first entry refers to forbidden x place, the second to y.
         self.num_actions = len(self.act_list)
-        self.walls=[[[[],[]] for ycoord in range(self.num_percepts_list[1])] for xcoord in range(self.num_percepts_list[0])]
+        self.walls=[]
         #initialize with boundary walls  
-        # use world.walls[x][y]=[move1,move2] or .append(move) to update
         for xcoord in range(self.num_percepts_list[0]):
-            self.walls[xcoord][0][1].append(-1)
-            self.walls[xcoord][dimensions[1]-1][1].append(+1)
+            self.walls.append([xcoord,-1])
+            self.walls.append([xcoord,self.num_percepts_list[1]])
         for ycoord in range(self.num_percepts_list[1]):
-            self.walls[0][ycoord][0].append(-1)
-            self.walls[dimensions[0]-1][ycoord][0].append(+1)
-    
+            self.walls.append([-1,ycoord])
+            self.walls.append([self.num_percepts_list[0], ycoord])
+
     def reset(self):
         self.position = np.array([0, 0])
         return self.position
@@ -60,15 +58,17 @@ class TaskEnvironment(object):
         """Given the agent's action index (int 0-3), returns the new position, reward and trial_finished."""
         #test whether the action is permissible   
         action = self.act_list[action_index]
-        posx, posy = self.position
-        if not action[0] in self.walls[posx][posy][0]:
-            self.position += np.array([action[0], 0])
-        if not action[1] in self.walls[posx][posy][1]:
-            self.position += np.array([0, action[1]]) 
+        new_pos = self.position + np.array([action[0], action[1]])
+
+        if not [new_pos[0],new_pos[1]] in self.walls:
+            self.position = new_pos
+
         reward = self.rewards[self.position[0], self.position[1]]
         trial_finished = False
+
         if reward == 1:  #reset to origin to avoid agent hanging around target all the time
             self.position = np.array([0, 0])
             trial_finished = True
+
         return self.position, reward, trial_finished
         
