@@ -32,7 +32,7 @@ class FlexiblePSAgent(object):
     since otherwise the agent will (most likely) never encounter the same percept twice.
     Deliberation features: forgetting, glow, optional softmax rule. """
 
-    def __init__(self, num_actions, gamma_damping, eta_glow_damping, policy_type, beta_softmax):
+    def __init__(self, num_actions, gamma_damping, eta_glow_damping, policy_type, beta_softmax, num_reflections):
         """Initialize the basic PS agent. Arguments: 
         - num_actions: integer >=1, 
         - gamma_damping: float between 0 and 1, controls forgetting/damping of h-values
@@ -46,9 +46,16 @@ class FlexiblePSAgent(object):
         self.eta_glow_damping = eta_glow_damping   #damping of glow, eta
         self.policy_type = policy_type
         self.beta_softmax = beta_softmax
+        self.num_reflections = num_reflections
 
         self.h_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64)
         self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64)
+
+        if num_reflections > 0:
+            self.last_percept_action = None  #stores the last realized percept-action pair for use with reflection. If reflection is deactivated, all necessary information is encoded in g_matrix.
+            self.e_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.bool_) # emoticons
+                #emoticons are initialized to True (happy, good choice) and set to false (sad, reflect again) only if the percept-action pair is used and does not yield a reward.
+
 
         #dictionary of raw percepts 
         self.percept_dict = {}
@@ -76,6 +83,7 @@ class FlexiblePSAgent(object):
             self.num_percepts += 1
             #add column to hmatrix, gmatrix
             self.h_matrix = np.append(self.h_matrix,np.ones([self.num_actions,1]),axis=1)
+            self.e_matrix = np.append(self.h_matrix,np.ones([self.num_actions,1]),axis=1)
             self.g_matrix = np.append(self.g_matrix,np.zeros([self.num_actions,1]),axis=1)
 
         return self.percept_dict[dict_key]
@@ -88,10 +96,22 @@ class FlexiblePSAgent(object):
             - reward: float
         Output: action, represented by a single integer index."""        
         self.h_matrix =  self.h_matrix - self.gamma_damping * (self.h_matrix - 1.) + self.g_matrix * reward # learning and forgetting
+        if (self.num_reflections > 0) and (self.last_percept_action != None) and (reward <= 0): # reflection update
+            self.e_matrix[self.last_percept_action] = 0
+
         percept = self.percept_preprocess(observation) 
         action = np.random.choice(self.num_actions, p=self.probability_distr(percept)) #deliberate once
+        for i_counter in range(self.num_reflections):  #if num_reflection >=1, repeat deliberation if indicated
+            if self.e_matrix[action, percept]:
+                break
+            action = np.random.choice(self.num_actions, p=self.probability_distr(percept))		
+        
         self.g_matrix = (1 - self.eta_glow_damping) * self.g_matrix
         self.g_matrix[action, percept] = 1 #record latest decision in g_matrix
+        
+        if self.num_reflections > 0:
+            self.last_percept_action = action, percept	#record latest decision in last_percept_action
+        
         return action	
 		
     def probability_distr(self, percept):
