@@ -46,6 +46,7 @@ class BasicPSAgent(object):
 		self.num_percepts = int(np.prod(np.array(self.num_percepts_list).astype(np.float64))) # total number of possible percepts
 		
 		self.h_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
+		self.h0_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
 		self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64) #glow matrix, for processing delayed rewards
 		
 		if num_reflections > 0:
@@ -70,19 +71,26 @@ class BasicPSAgent(object):
             - observation: list of integers, as specified for percept_preprocess, 
             - reward: float
         Output: action, represented by a single integer index."""        
-		self.h_matrix =  self.h_matrix - self.gamma_damping * (self.h_matrix - 1.) + self.g_matrix * reward # learning and forgetting
+		#self.h_matrix =  self.h_matrix - self.gamma_damping * (self.h_matrix - 1.) + self.g_matrix * reward # learning and forgetting
+		self.h_matrix =  self.h_matrix*(1. - self.gamma_damping) + self.gamma_damping * self.h0_matrix + self.g_matrix * reward # learning and forgetting
+
 		if (self.num_reflections > 0) and (self.last_percept_action != None) and (reward <= 0): # reflection update
 			self.e_matrix[self.last_percept_action] = 0
+		
 		percept = self.percept_preprocess(observation) 
 		action = np.random.choice(self.num_actions, p=self.probability_distr(percept)) #deliberate once
+		
 		for i_counter in range(self.num_reflections):  #if num_reflection >=1, repeat deliberation if indicated
 			if self.e_matrix[action, percept]:
 				break
 			action = np.random.choice(self.num_actions, p=self.probability_distr(percept))		
+		
 		self.g_matrix = (1 - self.eta_glow_damping) * self.g_matrix
 		self.g_matrix[action, percept] = 1 #record latest decision in g_matrix
+		
 		if self.num_reflections > 0:
 			self.last_percept_action = action, percept	#record latest decision in last_percept_action
+		
 		return action	
 		
 	def probability_distr(self, percept):
