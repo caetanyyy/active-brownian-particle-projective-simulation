@@ -24,7 +24,7 @@ import numpy as np
 class BasicPSAgent(object):
 	"""Projective Simulation agent with two-layered network. Features: forgetting, glow, reflection, optional softmax rule. """
 	
-	def __init__(self, num_actions, num_percepts_list, gamma_damping, eta_glow_damping, policy_type, beta_softmax, num_reflections):
+	def __init__(self, num_actions, num_percepts_list, gamma_damping, eta_glow_damping, policy_type, beta_softmax):
 		"""Initialize the basic PS agent. Arguments: 
             - num_actions: integer >=1, 
             - num_percepts_list: list of integers >=1, not nested, representing the cardinality of each category/feature of percept space.
@@ -41,7 +41,6 @@ class BasicPSAgent(object):
 		self.eta_glow_damping = eta_glow_damping
 		self.policy_type = policy_type
 		self.beta_softmax = beta_softmax
-		self.num_reflections = num_reflections
 		
 		self.num_percepts = int(np.prod(np.array(self.num_percepts_list).astype(np.float64))) # total number of possible percepts
 		
@@ -49,11 +48,6 @@ class BasicPSAgent(object):
 		self.h0_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
 		self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64) #glow matrix, for processing delayed rewards
 		
-		if num_reflections > 0:
-			self.last_percept_action = None  #stores the last realized percept-action pair for use with reflection. If reflection is deactivated, all necessary information is encoded in g_matrix.
-			self.e_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.bool_) # emoticons
-                #emoticons are initialized to True (happy, good choice) and set to false (sad, reflect again) only if the percept-action pair is used and does not yield a reward.
-			
 	def percept_preprocess(self, observation): # preparing for creating a percept
 		"""Takes a multi-feature percept and reduces it to a single integer index.
         Input: list of integers >=0, of the same length as self.num_percept_list; 
@@ -80,7 +74,7 @@ class BasicPSAgent(object):
 		action = np.random.choice(self.num_actions, p=self.probability_distr(percept)) #deliberate once	
 		
 		self.g_matrix = (1 - self.eta_glow_damping) * self.g_matrix
-		self.g_matrix[action, percept] = 1 #record latest decision in g_matrix
+		self.g_matrix[action, percept] += 1 #record latest decision in g_matrix
 		
 		return action	
 		

@@ -10,7 +10,7 @@ class TaskEnvironment(object):
         self.L = L
 
         self.r = np.array([0, 0]) #keeps track of where the agent is located
-        self.state = 0 #0 ou 1
+        self.state = 1 #0 ou 1
         self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
 
         self.target_radius = 0.05*L #tamanho do target
@@ -38,9 +38,17 @@ class TaskEnvironment(object):
     def reset(self):
 
         # reseta posição do target
-        self.target_position = np.array([np.random.rand()*self.L, np.random.rand()*self.L])
-        self.state = 0 #reseta o estado da partícula
+        self.target_position = np.array([
+            np.random.rand()*self.L, 
+            np.random.rand()*self.L])
+        
+        self.state = 1 #reseta o estado da partícula
         self.timer = 0 #reseta o timer de estado
+
+        self.theta_t = 2*np.pi*np.random.rand() #inicia a orientação aleatória
+        self.u_t = np.array([
+            np.cos(self.theta_t), 
+            np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
 
         return [self.state, self.timer]
     
@@ -51,17 +59,26 @@ class TaskEnvironment(object):
             self.timer = 0 # reseta o timer
 
             if self.state == 1: # se o estado é 1
+
                 self.theta_t = 2*np.pi*np.random.rand() #inicia a orientação aleatória
-                self.u_t = np.array([np.cos(self.theta_t), np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
+                self.u_t = np.array([
+                    np.cos(self.theta_t), 
+                    np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
                 
         else: # Se o estado se manter
             if self.state == 1: # se está em ABP
+
                 self.n_t = np.random.normal() #calcula o ruído da orientação
                 self.theta_t = self.theta_t + np.sqrt(2*self.D_theta*self.dt)*self.n_t #atualiza a orientação
-                self.u_t = np.array([np.cos(self.theta_t), np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
+                self.u_t = np.array([
+                    np.cos(self.theta_t), 
+                    np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
+
             self.timer += 1 #atualiza timer do estado
         
-        self.E_t = np.array([np.random.normal(), np.random.normal()]) #calcula o ruído do movimento BP
+        self.E_t = np.array([
+            np.random.normal(), 
+            np.random.normal()]) #calcula o ruído do movimento BP
         
         self.dr_theta = self.v*self.u_t*self.state*self.dt #calcula o movimento ABP
         self.dr = np.sqrt(2*self.D*self.dt)*self.E_t #calcula o movimento BP
@@ -76,7 +93,7 @@ class TaskEnvironment(object):
             reward = 1
             trial_finished = True
             self.reset()
-
+        
         # se alcançou o limite de tempo em um movimento, troca de movimento
         elif self.timer == self.max_steps_per_trial - 1:
             self.state = 1 - self.state
@@ -84,6 +101,8 @@ class TaskEnvironment(object):
 
             if self.state == 1: # se o estado é 1
                 self.theta_t = 2*np.pi*np.random.rand() #inicia a orientação aleatória
-                self.u_t = np.array([np.cos(self.theta_t), np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
+                self.u_t = np.array([
+                    np.cos(self.theta_t), 
+                    np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
 
         return [self.state, self.timer], reward, trial_finished
