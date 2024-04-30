@@ -1,24 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Copyright 2018 Alexey Melnikov and Katja Ried.
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
-
-Please acknowledge the authors when re-using this code and maintain this notice intact.
-Code written by Katja Ried, implementing ideas from 
-
-'Projective simulation applied to the grid-world and the mountain-car problem'
-Alexey A. Melnikov, Adi Makmal & Hans J. Briegel
-arXiv:1405.5459 (2014)
-
-and 
-
-'Meta-learning within projective simulation'
-Adi Makmal, Alexey A. Melnikov, Vedran Dunjko & Hans J. Briegel
-IEEE Access 4, pp. 2110-2122 (2016) doi:10.1109/ACCESS.2016.2556579
-"""
-
-#This code requires the following packages
 import numpy as np
 
 class TaskEnvironment(object):
