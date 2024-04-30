@@ -104,4 +104,3 @@ class BasicPSAgent(object):
 			h_vector_mod = h_vector - np.max(h_vector)
 			probability_distr = np.exp(h_vector_mod) / np.sum(np.exp(h_vector_mod))
 		return probability_distr
-	

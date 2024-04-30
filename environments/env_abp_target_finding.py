@@ -105,21 +105,18 @@ class TaskEnvironment(object):
     # Realiza mudanças do ambiente
     def update_environment(self, action): 
 
+        self.timer += 1 #atualiza timer do estado
+        self.dr_theta = 0 #Não há movimento ABP
+
         #Se houver ação de troca de estado
         if action: 
-            self.action() 
-            if self.state == 1: # Se está no estado ABP
-                self.reset_agent_ABP() # Se a troca de estado ocorreu para o estado ABP
-            else: # Se não está no estado ABP
-                self.dr_theta = 0 #Não há movimento ABP
+            self.action() # Troca o estado e reseta o timer
+            if self.state == 1: # Se trocou para o estado ABP
+                self.reset_agent_ABP() # Inicia variáveis aleatórias do estado
                 
-        # Se não houver ação  
-        else: 
-            if self.state == 1: # se está em ABP
-                self.update_agent_ABP() # Atualiza parâmetros do movimento ABP
-            else: #Se não está em ABP
-                self.dr_theta = 0 #Não há movimento ABP
-            self.timer += 1 #atualiza timer do estado
+        # Se não houver ação mas o estado for ABP
+        elif self.state == 1: # se está em ABP
+            self.update_agent_ABP() # Atualiza parâmetros do movimento ABP                
         
         # Calcula a posição final do agente
         self.update_agent_position()
