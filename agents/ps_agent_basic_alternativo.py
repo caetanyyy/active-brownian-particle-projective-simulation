@@ -32,7 +32,6 @@ class BasicPSAgent(object):
             - eta_glow_damping: float between 0 and 1, controls the damping of glow; setting this to 1 effectively switches off glow
             - policy_type: string, 'standard' or 'softmax'; toggles the rule used to compute probabilities from h-values
             - beta_softmax: float >=0, probabilities are proportional to exp(beta*h_value). If policy_type != 'softmax', then this is irrelevant.
-            - num_reflections: integer >=0 setting how many times the agent reflects, ie potentially goes back to the percept. Setting this to zero effectively deactivates reflection.
             """
 		
 		self.num_actions = num_actions
@@ -59,6 +58,7 @@ class BasicPSAgent(object):
 		return percept
 		
 	def learn(self, reward):
+		#self.h_matrix =  self.h_matrix - self.gamma_damping * (self.h_matrix - 1.) + self.g_matrix * reward # learning and forgetting
 		self.h_matrix =  self.h_matrix*(1. - self.gamma_damping) + self.gamma_damping * self.h0_matrix + self.g_matrix * reward # learning and forgetting
 
 	def deliberate(self, observation):
@@ -66,9 +66,7 @@ class BasicPSAgent(object):
         updates the h_matrix, chooses the next action and records that choice in the g_matrix and last_percept_action.
         Arguments: 
             - observation: list of integers, as specified for percept_preprocess, 
-            - reward: float
         Output: action, represented by a single integer index."""        
-		#self.h_matrix =  self.h_matrix - self.gamma_damping * (self.h_matrix - 1.) + self.g_matrix * reward # learning and forgetting
 		
 		percept = self.percept_preprocess(observation) 
 		action = np.random.choice(self.num_actions, p=self.probability_distr(percept)) #deliberate once	
