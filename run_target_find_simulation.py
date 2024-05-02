@@ -7,6 +7,7 @@ import joblib
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import gc
+import time
 
 sys.path.insert(0, 'agents')
 sys.path.insert(0, 'environments')
@@ -290,7 +291,8 @@ class ProjectiveSimulation(object):
     def fit(self, num_episodes, max_steps_per_episode, job_id = None):
 
         learning_process = np.zeros(num_episodes)
-        for ep in tqdm(range(num_episodes), desc = f"Total de episódios do job {job_id}", position = job_id+1):
+        #for ep in tqdm(range(num_episodes), desc = f"Total de episódios do job {job_id}", position = job_id+1):
+        for ep in range(num_episodes):
             step = self.run_episode(max_steps_per_episode) # Roda o episódio
             learning_process[ep] = step/self.env.max_steps_per_trial # Salva o passo do fim do episódio
 
@@ -347,22 +349,25 @@ if __name__ == "__main__":
     # Thread x Process: https://stackoverflow.com/questions/3044580/multiprocessing-vs-threading-python
     # Comportamento de np.random com cada tipo de backend: https://joblib.readthedocs.io/en/latest/auto_examples/parallel_random_state.html
     # Paraleliza se necessário https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop
+    start_time = time.time()
 
+    # Se for realizada a paralelização
     if (args.n_jobs != 1) & (args.n_sim > 1):
         print('Iniciando paralelização:')
 
-        #with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
-        Parallel(
+        with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
+            Parallel(
                 n_jobs = args.n_jobs,
-                verbose = 10,
+                #verbose = 10,
                 backend = "multiprocessing"
             )(delayed(main)(args, sim) for sim in range(args.n_sim))
     
+    # Se for sequencial
     else:
         print('Iniciando simulações:')
         for sim in tqdm(range(args.n_sim)):
             main(args, sim)
-
+    print("--- %s seconds ---" % (time.time() - start_time))
+    
     gc.collect()
-
     sys.exit(0)
