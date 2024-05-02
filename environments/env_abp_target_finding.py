@@ -1,7 +1,10 @@
 import numpy as np
 
-class TaskEnvironment(object):
+class Environment(object):
     def __init__ (self, L, Pe, l, tao, dt):
+        # Gerador aleatório da classe:
+        self.rng = np.random.RandomState(None)
+
         # Inicia variáveis do ambiente
         self.max_steps_per_trial = tao # tempo máximo de uma rodada
         self.num_states = 2 # 1 = ativo ou 0 = passivo
@@ -23,8 +26,8 @@ class TaskEnvironment(object):
         # Estado inicial do target
         self.target_radius = 0.05*L #tamanho do target
         self.target_position = np.array([
-            np.random.rand()*self.L, 
-            np.random.rand()*self.L
+            self.rng.rand()*self.L, 
+            self.rng.rand()*self.L
         ]) #posição do target [x,y]
         
         # Parametros de movimento do agente
@@ -35,20 +38,20 @@ class TaskEnvironment(object):
 
         # Movimento ABP
         self.dr_theta = 0 
-        self.theta_t = 2*np.pi*np.random.rand() #Rotação do movimento
-        self.n_t = np.random.normal() #ruído escalar
+        self.theta_t = 2*np.pi*self.rng.rand() #Rotação do movimento
+        self.n_t = self.rng.normal() #ruído escalar
         self.u_t = np.array([np.cos(self.theta_t), np.sin(self.theta_t)]) #orientação do movimento ativo
         
         # Movimento BP
         self.dr = 0 #translação passiva
-        self.E_t = np.array([np.random.normal(),np.random.normal()]) #vetor ruído
+        self.E_t = np.array([self.rng.normal(),self.rng.normal()]) #vetor ruído
 
     # Reseta estado do target
     # Sempre que um episódio finalizar, seja porque o agente encontrou o target ou porque não encontrou, reinicia a posição do target
     def reset_target(self):
         self.target_position = np.array([
-            np.random.rand()*self.L, 
-            np.random.rand()*self.L])
+            self.rng.rand()*self.L, 
+            self.rng.rand()*self.L])
 
     # Reinicia estado do agente para um estado específico
     def reset_agent_state(self, new_state):
@@ -59,7 +62,7 @@ class TaskEnvironment(object):
 
     # Reseta estado do agente caso ele mude de passivo para ABP
     def reset_agent_ABP(self):
-        self.theta_t = 2*np.pi*np.random.rand() #Inicia a magnetude da orientação aleatória do ABP
+        self.theta_t = 2*np.pi*self.rng.rand() #Inicia a magnetude da orientação aleatória do ABP
         self.u_t = np.array([
             np.cos(self.theta_t), 
             np.sin(self.theta_t)]) # Projeta a magnetude nos eixos X e Y
@@ -67,7 +70,7 @@ class TaskEnvironment(object):
 
     # Atualiza parâmetros do estado ABP caso ele se mantenha no estado ABP
     def update_agent_ABP(self):
-        self.n_t = np.random.normal() #Calcula ruído do movimento ABP
+        self.n_t = self.rng.normal() #Calcula ruído do movimento ABP
         self.theta_t = self.theta_t + np.sqrt(2*self.D_theta*self.dt)*self.n_t #Atualiza magnetude da orentação aleatória do ABP
         self.u_t = np.array([
             np.cos(self.theta_t), 
@@ -77,8 +80,8 @@ class TaskEnvironment(object):
     # Atualiza posição final do agente 
     def update_agent_position(self):
         self.E_t = np.array([
-            np.random.normal(), 
-            np.random.normal()]) # Calcula o ruído do movimento BP
+            self.rng.normal(), 
+            self.rng.normal()]) # Calcula o ruído do movimento BP
         self.dr = np.sqrt(2*self.D*self.dt)*self.E_t # Calcula a componente de movimento BP
         self.r = (self.r + self.dr_theta + self.dr)%self.L # Atualiza posição do agente
         self.distance = np.linalg.norm(self.r - self.target_position) # Calcula distância do target

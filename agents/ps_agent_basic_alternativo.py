@@ -18,10 +18,9 @@ Julian Mautner, Adi Makmal, Daniel Manzano, Markus Tiersch & Hans J. Briegel
 New Generation Computing, Volume 33, Issue 1, pp 69-114 (2015) doi:10.1007/s00354-015-0102-0
 """
 
-import __future__
 import numpy as np
 
-class BasicPSAgent(object):
+class Agent(object):
 	"""Projective Simulation agent with two-layered network. Features: forgetting, glow, reflection, optional softmax rule. """
 	
 	def __init__(self, num_actions, num_percepts_list, gamma_damping, eta_glow_damping, policy_type, beta_softmax, num_reflections = 0):
@@ -47,7 +46,8 @@ class BasicPSAgent(object):
 		self.h_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
 		self.h0_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
 		self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64) #glow matrix, for processing delayed rewards
-		
+		self.rng = np.random.RandomState(None)
+
 		if num_reflections > 0:
 			self.last_percept_action = None  #stores the last realized percept-action pair for use with reflection. If reflection is deactivated, all necessary information is encoded in g_matrix.
 			self.e_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.bool_) # emoticons
@@ -78,12 +78,12 @@ class BasicPSAgent(object):
         Output: action, represented by a single integer index."""        
 		
 		percept = self.percept_preprocess(observation) 
-		action = np.random.choice(self.num_actions, p=self.probability_distr(percept)) #deliberate once	
+		action = self.rng.choice(self.num_actions, p=self.probability_distr(percept)) #deliberate once	
 		
 		for i_counter in range(self.num_reflections):  #if num_reflection >=1, repeat deliberation if indicated
 			if self.e_matrix[action, percept]:
 				break
-			action = np.random.choice(self.num_actions, p=self.probability_distr(percept))		
+			action = self.rng.choice(self.num_actions, p=self.probability_distr(percept))		
 
 		self.g_matrix = (1 - self.eta_glow_damping) * self.g_matrix
 		self.g_matrix[action, percept] += 1 #record latest decision in g_matrix
@@ -104,3 +104,6 @@ class BasicPSAgent(object):
 			h_vector_mod = h_vector - np.max(h_vector)
 			probability_distr = np.exp(h_vector_mod) / np.sum(np.exp(h_vector_mod))
 		return probability_distr
+	
+	def reset_glow_matrix(self):
+		self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64) #glow matrix, for processing delayed rewards
