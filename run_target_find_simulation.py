@@ -6,6 +6,7 @@ import contextlib
 import joblib
 from tqdm import tqdm
 from joblib import Parallel, delayed
+import gc
 
 sys.path.insert(0, 'agents')
 sys.path.insert(0, 'environments')
@@ -331,6 +332,12 @@ def main(args, sim_id):
     save_file('h_matrix', model.h_matrix(), args, filename_time)
     #save_file('g_matrix', model.g_matrix(), args, filename_time)
     #save_file('ho_matrix', model.ho_matrix(), args, filename_time)
+
+    del agent
+    del model
+    del learning_process
+    del filename_time
+    gc.collect()
     
     return 0
 
@@ -344,8 +351,8 @@ if __name__ == "__main__":
     if (args.n_jobs != 1) & (args.n_sim > 1):
         print('Iniciando paralelização:')
 
-        with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
-            Parallel(
+        #with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
+        Parallel(
                 n_jobs = args.n_jobs,
                 verbose = 10,
                 backend = "multiprocessing"
@@ -355,5 +362,7 @@ if __name__ == "__main__":
         print('Iniciando simulações:')
         for sim in tqdm(range(args.n_sim)):
             main(args, sim)
+
+    gc.collect()
 
     sys.exit(0)
