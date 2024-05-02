@@ -14,6 +14,7 @@ sys.path.insert(0, 'environments')
 
 import env_abp_target_finding as env_class
 import ps_agent_basic_alternativo as agent_class
+import projective_simulation_iteration as ps_model
 
 @contextlib.contextmanager
 def tqdm_joblib(tqdm_object):
@@ -263,55 +264,6 @@ def create_models(args):
 
     return agent, env
 
-class ProjectiveSimulation(object): 
-    def __init__(self, agent, environment):
-        self.agent = agent
-        self.env = environment
-    
-    def run_learning_step(self):
-        observation = self.env.state_observation() # Observação: [Estado (0,1), Quantidade de passos no estado (0,...,tao-1)]
-        action = self.agent.deliberate(observation) # Agente toma uma ação (0 = Manter estado, 1 = Trocar de estado)
-        reward, done = self.env.update_environment(action) # Atualiza o ambiente de acordo com a ação do agente
-        self.agent.learn(reward) # Realiza aprendizado do agente de acordo com a recompensa recebida
-        return done
-
-    def run_episode(self, max_steps_per_episode):   
-
-        self.env.reset_target() #Resta a posição do target
-        self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
-        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo
-
-        # Inicia passos de aprendizado do episódio
-        for step in range(max_steps_per_episode):
-            done = self.run_learning_step()
-            if done:
-                break
-        return step
-
-    def fit(self, num_episodes, max_steps_per_episode):
-
-        learning_process = np.zeros(num_episodes)
-        for ep in range(num_episodes):
-            step = self.run_episode(max_steps_per_episode) # Roda o episódio
-            learning_process[ep] = step/self.env.max_steps_per_trial # Salva o passo do fim do episódio
-
-        return learning_process
-
-    def h_matrix(self):
-        return self.agent.h_matrix
-
-    def g_matrix(self):
-        return self.agent.g_matrix
-
-    def ho_matrix(self):
-        return self.agent.h0_matrix
-
-    def e_matrix(self):
-        try:
-            return self.agent.e_matrix
-        except:
-             return None
-        
 def save_file(filename, array, args, filename_time = ''):
 
     filename_id = '__'.join([f'{value}' for key, value in vars(args).items()])
@@ -324,7 +276,7 @@ def main(args):
     # Gera os modelos
     agent, env = create_models(args)
     # Gera a classe de simulação
-    model = ProjectiveSimulation(agent, env)
+    model = ps_model.ProjectiveSimulation(agent, env)
     # Treina os modelos
     learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
     # Salva os dados
