@@ -16,7 +16,7 @@ class ProjectiveSimulation(object):
 
         self.env.reset_target() #Resta a posição do target
         self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
-        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo
+        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
 
         # Inicia passos de aprendizado do episódio
         for step in range(max_steps_per_episode):
