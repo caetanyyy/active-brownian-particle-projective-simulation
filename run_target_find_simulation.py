@@ -288,10 +288,9 @@ class ProjectiveSimulation(object):
                 break
         return step
 
-    def fit(self, num_episodes, max_steps_per_episode, job_id = None):
+    def fit(self, num_episodes, max_steps_per_episode):
 
         learning_process = np.zeros(num_episodes)
-        #for ep in tqdm(range(num_episodes), desc = f"Total de episódios do job {job_id}", position = job_id+1):
         for ep in range(num_episodes):
             step = self.run_episode(max_steps_per_episode) # Roda o episódio
             learning_process[ep] = step/self.env.max_steps_per_trial # Salva o passo do fim do episódio
@@ -321,19 +320,17 @@ def save_file(filename, array, args, filename_time = ''):
 
     np.savetxt(path, array, fmt='%.4f', delimiter=',')
 
-def main(args, sim_id):
+def main(args):
     # Gera os modelos
     agent, env = create_models(args)
     # Gera a classe de simulação
     model = ProjectiveSimulation(agent, env)
     # Treina os modelos
-    learning_process = model.fit(args.num_episodes, args.max_steps_per_episode, sim_id)
+    learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
     # Salva os dados
     filename_time = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
     save_file('learning_process', learning_process, args, filename_time)
     save_file('h_matrix', model.h_matrix(), args, filename_time)
-    #save_file('g_matrix', model.g_matrix(), args, filename_time)
-    #save_file('ho_matrix', model.ho_matrix(), args, filename_time)
 
     del agent
     del model
@@ -348,26 +345,26 @@ if __name__ == "__main__":
     # Monitorar threads: https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution
     # Thread x Process: https://stackoverflow.com/questions/3044580/multiprocessing-vs-threading-python
     # Comportamento de np.random com cada tipo de backend: https://joblib.readthedocs.io/en/latest/auto_examples/parallel_random_state.html
-    # Paraleliza se necessário https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop
+    # Paralelição: https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop
+    
     start_time = time.time()
 
-    # Se for realizada a paralelização
+    # Se for realizada a paralelização:
     if (args.n_jobs != 1) & (args.n_sim > 1):
         print('Iniciando paralelização:')
 
         with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
             Parallel(
                 n_jobs = args.n_jobs,
-                #verbose = 10,
                 backend = "multiprocessing"
-            )(delayed(main)(args, sim) for sim in range(args.n_sim))
+            )(delayed(main)(args) for sim in range(args.n_sim))
     
-    # Se for sequencial
+    # Se for execução sequencial:
     else:
         print('Iniciando simulações:')
         for sim in tqdm(range(args.n_sim)):
-            main(args, sim)
+            main(args)
     print("--- %s seconds ---" % (time.time() - start_time))
-    
+
     gc.collect()
     sys.exit(0)
