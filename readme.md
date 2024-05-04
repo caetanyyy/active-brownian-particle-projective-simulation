@@ -1,5 +1,5 @@
 # Sobre o repositório
-Reprodução do artigo "Learning how to find targets in the micro-world - The case of intermittent active Brownian particles"
+Reprodução do artigo Caraglio, Michele, et al. "Learning how to find targets in the micro-world: the case of intermittent active Brownian particles." Soft Matter (2024) (https://arxiv.org/abs/2311.16692)
 
 # Como usar:
 
