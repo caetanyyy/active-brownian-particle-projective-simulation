@@ -12,18 +12,20 @@ class ProjectiveSimulation(object):
         self.agent.learn(reward) # Realiza aprendizado do agente de acordo com a recompensa recebida
         return done
 
-    def run_episode(self, max_steps_per_episode):   
-
-        self.env.reset_target() #Resta a posição do target
-        self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
-        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
+    def run_episode(self, max_steps_per_episode, reset_env = True):   
+        # Se reseta o ambiente no início de cada episódio
+        if reset_env:
+            self.env.reset_target() #Resta a posição do target
+            self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
+            self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
 
         # Inicia passos de aprendizado do episódio
         for step in range(max_steps_per_episode):
             done = self.run_learning_step()
-            if done:
+            if done: # Se encontrou recompensa, finaliza episódio
                 break
-        return step
+
+        return step # Retorna o último passo
 
     def fit(self, num_episodes, max_steps_per_episode):
 

@@ -303,8 +303,6 @@ if __name__ == "__main__":
 
     # Se for realizada a paralelização:
     if (args.n_jobs != 1) & (args.n_sim > 1):
-        print('Iniciando paralelização:')
-
         with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
             Parallel(
                 n_jobs = args.n_jobs,
@@ -313,9 +311,9 @@ if __name__ == "__main__":
     
     # Se for execução sequencial:
     else:
-        print('Iniciando simulações:')
-        for sim in tqdm(range(args.n_sim)):
+        for sim in tqdm(range(args.n_sim), position = 0):
             main(args)
+
     print("--- %s seconds ---" % (time.time() - start_time))
 
     gc.collect()

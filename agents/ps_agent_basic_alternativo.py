@@ -31,6 +31,12 @@ class Agent(object):
 			self.last_percept_action = None  #stores the last realized percept-action pair for use with reflection. If reflection is deactivated, all necessary information is encoded in g_matrix.
 			self.e_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.bool_) # emoticons
 
+	def load_matrix(self, path):
+		self.h_matrix = np.loadtxt(f'{path}/h_matrix.txt')
+		self.h0_matrix = np.loadtxt(f'{path}/h0_matrix.txt')
+		self.g_matrix = np.loadtxt(f'{path}/h_matrix.txt')
+		self.e_matrix = np.loadtxt(f'{path}/e_matrix.txt')
+
 	def percept_preprocess(self, observation): # preparing for creating a percept
 		percept = 0
 		for which_feature in range(len(observation)):
