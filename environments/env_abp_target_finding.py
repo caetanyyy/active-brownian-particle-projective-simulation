@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 class Environment(object):
     def __init__ (self, L, Pe, l, tao, dt):
@@ -134,3 +135,18 @@ class Environment(object):
                 self.reset_agent_ABP()
 
         return self.reward, self.trial_finished
+    
+    def save(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        with open(path + '/environment', 'wb') as f:
+            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def load(path):
+        if not os.path.exists(path):
+            raise Exception("Diretório inexistente")
+        else:
+            with open(path + '/environment', 'rb') as f:
+                return pickle.load(f)

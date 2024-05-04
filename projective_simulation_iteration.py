@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import pickle
 
 class ProjectiveSimulation(object): 
     def __init__(self, agent, environment):
@@ -12,12 +14,20 @@ class ProjectiveSimulation(object):
         self.agent.learn(reward) # Realiza aprendizado do agente de acordo com a recompensa recebida
         return done
 
-    def run_episode(self, max_steps_per_episode, reset_env = True):   
+    def reset_environment(self):
+        self.env.reset_target() #Resta a posição do target
+        self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
+
+    def reset_agent(self):
+        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
+
+    def run_episode(self, max_steps_per_episode, reset_env = True, reset_agent = True):   
         # Se reseta o ambiente no início de cada episódio
         if reset_env:
-            self.env.reset_target() #Resta a posição do target
-            self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
-            self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
+            self.reset_environment()
+        
+        if reset_agent:
+            self.reset_agent()
 
         # Inicia passos de aprendizado do episódio
         for step in range(max_steps_per_episode):
@@ -35,7 +45,6 @@ class ProjectiveSimulation(object):
             learning_process[ep] = step/self.env.max_steps_per_trial # Salva o passo do fim do episódio
 
         return learning_process
-
     def h_matrix(self):
         return self.agent.h_matrix
 
@@ -50,3 +59,27 @@ class ProjectiveSimulation(object):
             return self.agent.e_matrix
         except:
              return None
+
+    def save(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+            
+        with open(path + '/agent', 'wb') as f:
+            pickle.dump(self.agent, f, pickle.HIGHEST_PROTOCOL)
+
+        with open(path + '/environment', 'wb') as f:
+            pickle.dump(self.env, f, pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def load(path):
+        if not os.path.exists(path):
+            raise Exception("Diretório inexistente")
+                            
+        else:
+            with open(path + '/agent', 'rb') as f:
+                agent = pickle.load(f)
+
+            with open(path + '/environment', 'rb') as f:
+                env = pickle.load(f)
+
+            return ProjectiveSimulation(agent, env)

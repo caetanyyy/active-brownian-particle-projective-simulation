@@ -274,9 +274,14 @@ def save_file(filename, array, args, filename_time = ''):
 
 def main(args):
     # Gera os modelos
-    agent, env = create_models(args)
-    # Gera a classe de simulação
-    model = ps_model.ProjectiveSimulation(agent, env)
+    load = True
+    if load:
+        model = ps_model.ProjectiveSimulation.load('teste_saving')
+    else:
+        agent, env = create_models(args)
+        # Gera a classe de simulação
+        model = ps_model.ProjectiveSimulation(agent, env)
+
     # Treina os modelos
     learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
     # Salva os dados
@@ -284,8 +289,12 @@ def main(args):
     save_file('learning_process', learning_process, args, filename_time)
     save_file('h_matrix', model.h_matrix(), args, filename_time)
 
-    del agent
-    del model
+    model.save('teste_saving')
+
+    if not load:
+        del agent
+        del model
+        
     del learning_process
     del filename_time
     gc.collect()
