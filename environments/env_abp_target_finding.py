@@ -10,13 +10,12 @@ class Environment(object):
         self.max_steps_per_trial = tao # tempo máximo de uma rodada
         self.num_states = 2 # 1 = ativo ou 0 = passivo
         self.num_actions = 2 # 1 = troca de estado, 0 = mantem estado
+        self.num_percepts_list = [self.num_states, self.max_steps_per_trial] # Tamanho dos observaveis
         
-        self.reward = 0 #Inicia a recompensa como zero
-        self.trial_finished = False #Inicia o episódio
+        self.reward = 0 # Inicia a recompensa como zero
+        self.trial_finished = False # Inicia o episódio
 
-        # Tamanho dos observaveis
-        self.num_percepts_list = [self.num_states, self.max_steps_per_trial]
-        self.L = L # Dimensão do estapço
+        self.L = L # Dimensão do espaço
 
         # Estado inicial do agente
         self.r = np.array([0, 0]) #keeps track of where the agent is located
@@ -46,6 +45,10 @@ class Environment(object):
         # Movimento BP
         self.dr = 0 #translação passiva
         self.E_t = np.array([self.rng.normal(),self.rng.normal()]) #vetor ruído
+
+    def reset_rng(self, seed = None):
+        # Gerador aleatório da classe:
+        self.rng = np.random.RandomState(seed)
 
     # Reseta estado do target
     # Sempre que um episódio finalizar, seja porque o agente encontrou o target ou porque não encontrou, reinicia a posição do target
