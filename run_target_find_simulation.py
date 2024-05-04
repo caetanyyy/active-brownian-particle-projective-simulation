@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 import datetime
 import contextlib
+import json
 import joblib
 from tqdm import tqdm
 from joblib import Parallel, delayed
@@ -12,8 +13,8 @@ import time
 sys.path.insert(0, 'agents')
 sys.path.insert(0, 'environments')
 
-import env_abp_target_finding as env_class
-import ps_agent_basic_alternativo as agent_class
+import ps_env_abp_target_find as env_class
+import ps_agent as agent_class
 import projective_simulation_iteration as ps_model
 
 @contextlib.contextmanager
@@ -79,13 +80,6 @@ def read_args():
         prog='run_target_find_simulation',
         description='Realiza a simulação de busca de alvo por uma partícula Browniana de estados ativos e passivos através de aprendizado pro reforço com simulação projetiva',
         #epilog='Text at the bottom of help'
-    )
-    
-    parser.add_argument(
-        "--filename","--f",
-        help="Nome do arquivo final", 
-        type = str,
-        default='target_find_simulation'
     )
     
     parser.add_argument(
@@ -181,6 +175,20 @@ def read_args():
         default=1
     )
 
+    parser.add_argument(
+        "--save_path",
+        help="Caminho para salvar modelos", 
+        type = str,
+        default=''
+    )
+
+    parser.add_argument(
+        "--load_path",
+        help="Caminho para carregar modelo", 
+        type = str,
+        default=''
+    )
+
     args = parser.parse_args()
 
     if args.damping_flag:
@@ -264,19 +272,11 @@ def create_models(args):
 
     return agent, env
 
-def save_file(filename, array, args, filename_time = ''):
-
-    filename_id = '__'.join([f'{value}' for key, value in vars(args).items()])
-    filename = filename + "___" + filename_id + "____" + filename_time 
-    path = 'target_find_data/' + filename + '.txt'
-
-    np.savetxt(path, array, fmt='%.4f', delimiter=',')
-
 def main(args):
     # Gera os modelos
-    load = True
-    if load:
-        model = ps_model.ProjectiveSimulation.load('teste_saving')
+    if len(args.load_path) > 0:
+        model = ps_model.ProjectiveSimulation.load(args.load_path)
+
     else:
         agent, env = create_models(args)
         # Gera a classe de simulação
@@ -284,14 +284,18 @@ def main(args):
 
     # Treina os modelos
     learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
-    # Salva os dados
-    filename_time = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
-    save_file('learning_process', learning_process, args, filename_time)
-    save_file('h_matrix', model.h_matrix(), args, filename_time)
+    
+    if len(args.save_path) > 0:
+        filename_time = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
+        model.save(args.save_path+'/'+filename_time)
 
-    model.save('teste_saving')
+        with open(args.save_path+'/'+filename_time +'/args.json', 'w') as fp:
+            json.dump(vars(args), fp)
 
-    if not load:
+        np.savetxt(args.save_path+'/'+filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args.save_path+'/'+filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+
+    if len(args.load_path) > 0:
         del agent
         del model
         
@@ -303,11 +307,6 @@ def main(args):
 
 if __name__ == "__main__":
     args = read_args()
-    # Monitorar threads: https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution
-    # Thread x Process: https://stackoverflow.com/questions/3044580/multiprocessing-vs-threading-python
-    # Comportamento de np.random com cada tipo de backend: https://joblib.readthedocs.io/en/latest/auto_examples/parallel_random_state.html
-    # Paralelição: https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop
-    
     start_time = time.time()
 
     # Se for realizada a paralelização:
@@ -327,3 +326,8 @@ if __name__ == "__main__":
 
     gc.collect()
     sys.exit(0)
+
+# Monitorar threads: https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution
+# Thread x Process: https://stackoverflow.com/questions/3044580/multiprocessing-vs-threading-python
+# Comportamento de np.random com cada tipo de backend: https://joblib.readthedocs.io/en/latest/auto_examples/parallel_random_state.html
+# Paralelição: https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop

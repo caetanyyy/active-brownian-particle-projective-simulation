@@ -43,8 +43,8 @@ class ProjectiveSimulation(object):
         for ep in range(num_episodes):
             step = self.run_episode(max_steps_per_episode) # Roda o episódio
             learning_process[ep] = step/self.env.max_steps_per_trial # Salva o passo do fim do episódio
-
         return learning_process
+    
     def h_matrix(self):
         return self.agent.h_matrix
 
