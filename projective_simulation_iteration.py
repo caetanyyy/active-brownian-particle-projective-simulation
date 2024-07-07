@@ -2,6 +2,8 @@ import numpy as np
 import os
 import pickle
 
+
+
 class ProjectiveSimulation(object): 
     def __init__(self, agent, environment):
         self.agent = agent
@@ -13,13 +15,6 @@ class ProjectiveSimulation(object):
         reward, done = self.env.update_environment(action) # Atualiza o ambiente de acordo com a ação do agente
         self.agent.learn(reward) # Realiza aprendizado do agente de acordo com a recompensa recebida
         return done
-
-    def reset_environment(self):
-        self.env.reset_target() #Resta a posição do target
-        self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
-
-    def reset_agent(self):
-        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
 
     def run_episode(self, max_steps_per_episode, reset_env = True, reset_agent = True):   
         # Se reseta o ambiente no início de cada episódio
@@ -45,6 +40,25 @@ class ProjectiveSimulation(object):
             learning_process[ep] = step/self.env.max_steps_per_trial # Salva o passo do fim do episódio
         return learning_process
     
+    def reset_environment(self):
+        self.env.reset_target() #Resta a posição do target
+        self.env.reset_agent_state(1) # Ao inicio de cada episódio, reseta o agente no estado ABP (1)
+
+    def reset_agent(self):
+        self.agent.reset_glow_matrix() # Reseta a matriz de glow, conforme o artigo de ABP
+
+    def set_agent_atribute(self, atribute, value):
+        setattr(self.agent, atribute, value)
+    
+    def set_environment_atribute(self, atribute, value):
+        setattr(self.env, atribute, value)
+
+    def get_agent_atribute(self, atribute):
+        return getattr(self.agent, atribute)
+    
+    def get_environment_atribute(self, atribute):
+        return getattr(self.env, atribute)
+
     def h_matrix(self):
         return self.agent.h_matrix
 

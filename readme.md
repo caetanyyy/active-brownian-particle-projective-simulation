@@ -6,7 +6,7 @@ Reprodução do artigo Caraglio, Michele, et al. "Learning how to find targets i
 ## Treinamento
 Para realizar o treinamento de um modelo:
 
-<code>python run_target_find_simulation --save_path "models" </code>
+<code>python run_target_find_simulation.py --save_path "models" </code>
 
 Inúmeros parâmetros podem ser repassados pela linha de comando. Alguns dos principais são:
 
@@ -32,7 +32,7 @@ Inúmeros parâmetros podem ser repassados pela linha de comando. Alguns dos pri
 
 Os padrâmetros padrões são os do artigo. Outros parâmetros podem ser repassados e seus valores padrões, basta rodar.
 
-<code>python run_target_find_simulation --help </code>
+<code>python run_target_find_simulation.py --help </code>
 
 ## Output:
 

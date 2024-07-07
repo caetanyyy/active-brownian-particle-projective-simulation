@@ -286,7 +286,7 @@ def main(args):
     learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
     
     if len(args.save_path) > 0:
-        filename_time = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
+        filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
         model.save(args.save_path+'/'+filename_time)
 
         with open(args.save_path+'/'+filename_time +'/args.json', 'w') as fp:

@@ -46,6 +46,9 @@ class Environment(object):
         self.dr = 0 #translação passiva
         self.E_t = np.array([self.rng.normal(),self.rng.normal()]) #vetor ruído
 
+        # Soma dos movimentos:
+        self.dr_dt = self.dr + self.dr_theta
+
     def reset_rng(self, seed = None):
         # Gerador aleatório da classe:
         self.rng = np.random.RandomState(seed)
@@ -87,7 +90,8 @@ class Environment(object):
             self.rng.normal(), 
             self.rng.normal()]) # Calcula o ruído do movimento BP
         self.dr = np.sqrt(2*self.D*self.dt)*self.E_t # Calcula a componente de movimento BP
-        self.r = (self.r + self.dr_theta + self.dr)%self.L # Atualiza posição do agente
+        self.dr_dt = self.dr_theta + self.dr
+        self.r = (self.r + self.dr_dt)%self.L # Atualiza posição do agente
         self.distance = np.linalg.norm(self.r - self.target_position) # Calcula distância do target
 
     # Troca o estado do agente caso seja tomada a ação
