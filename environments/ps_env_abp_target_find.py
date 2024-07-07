@@ -2,7 +2,52 @@ import numpy as np
 import pickle
 
 class Environment(object):
+    """
+    Represents an environment for an active brownian particle target finding simulation.
+
+    Attributes:
+        L (float): Dimension of the space.
+        Pe (float): Péclet number.
+        l (float): Length scale.
+        tao (int): Maximum steps per trial.
+        dt (float): Time step size.
+        rng (numpy.random.RandomState): Random number generator.
+        max_steps_per_trial (int): Maximum steps per trial.
+        num_states (int): Number of states (1 = active, 0 = passive).
+        num_actions (int): Number of actions (1 = state change, 0 = state maintain).
+        num_percepts_list (list): Size of the observables.
+        reward (float): Current reward.
+        trial_finished (bool): Flag indicating if the trial has finished.
+        r (numpy.ndarray): Current position of the agent.
+        state (int): Current state of the agent (0 or 1).
+        timer (int): Number of steps the agent has been in the current state.
+        distance (float): Distance between the agent and the target.
+        target_radius (float): Radius of the target.
+        target_position (numpy.ndarray): Current position of the target.
+        v (float): Translational velocity.
+        D (float): Translational coefficient.
+        D_theta (float): Rotational coefficient.
+        dt (float): Time step size.
+        dr_theta (float): Component of ABP movement.
+        theta_t (float): Rotation of the movement.
+        n_t (float): Scalar noise.
+        u_t (numpy.ndarray): Orientation of the active movement.
+        dr (float): Passive translation.
+        E_t (numpy.ndarray): Noise vector.
+        dr_dt (float): Sum of the movements.
+    """
+
     def __init__ (self, L, Pe, l, tao, dt):
+        """
+        Initializes the Environment object.
+
+        Args:
+            L (float): Dimension of the space.
+            Pe (float): Péclet number.
+            l (float): Length scale.
+            tao (int): Maximum steps per trial.
+            dt (float): Time step size.
+        """
         # Gerador aleatório da classe:
         self.rng = np.random.RandomState(None)
 
@@ -50,33 +95,55 @@ class Environment(object):
         self.dr_dt = self.dr + self.dr_theta
 
     def reset_rng(self, seed = None):
+        """
+        Resets the random number generator.
+
+        Args:
+            seed (int): Seed for the random number generator. If None, a random seed is used.
+        """
         # Gerador aleatório da classe:
         self.rng = np.random.RandomState(seed)
 
-    # Reseta estado do target
-    # Sempre que um episódio finalizar, seja porque o agente encontrou o target ou porque não encontrou, reinicia a posição do target
     def reset_target(self):
+        """
+        Resets the target position.
+
+        Always called when a trial finishes, whether the agent found the target or not.
+        """
         self.target_position = np.array([
             self.rng.rand()*self.L, 
             self.rng.rand()*self.L])
 
-    # Reinicia estado do agente para um estado específico
     def reset_agent_state(self, new_state):
+        """
+        Resets the agent state to a specific state.
+
+        Args:
+            new_state (int): New state for the agent (0 or 1).
+        """
         self.timer = 0
         if new_state == 1:
             self.reset_agent_ABP()
         self.state = new_state
 
-    # Reseta estado do agente caso ele mude de passivo para ABP
     def reset_agent_ABP(self):
+        """
+        Resets the agent state to ABP.
+
+        Called when the agent changes from passive to ABP state.
+        """
         self.theta_t = 2*np.pi*self.rng.rand() #Inicia a magnetude da orientação aleatória do ABP
         self.u_t = np.array([
             np.cos(self.theta_t), 
             np.sin(self.theta_t)]) # Projeta a magnetude nos eixos X e Y
         self.dr_theta = self.v*self.u_t*self.state*self.dt # Calcula componente e movimento ABP
 
-    # Atualiza parâmetros do estado ABP caso ele se mantenha no estado ABP
     def update_agent_ABP(self):
+        """
+        Updates the ABP state parameters.
+
+        Called when the agent remains in the ABP state.
+        """
         self.n_t = self.rng.normal() #Calcula ruído do movimento ABP
         self.theta_t = self.theta_t + np.sqrt(2*self.D_theta*self.dt)*self.n_t #Atualiza magnetude da orentação aleatória do ABP
         self.u_t = np.array([
@@ -84,8 +151,12 @@ class Environment(object):
             np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
         self.dr_theta = self.v*self.u_t*self.state*self.dt # Calcula componente de movimento ABP
 
-    # Atualiza posição final do agente 
     def update_agent_position(self):
+        """
+        Updates the agent's position.
+
+        Calculates the final position of the agent based on its current state and movement parameters.
+        """
         self.E_t = np.array([
             self.rng.normal(), 
             self.rng.normal()]) # Calcula o ruído do movimento BP
@@ -94,17 +165,30 @@ class Environment(object):
         self.r = (self.r + self.dr_dt)%self.L # Atualiza posição do agente
         self.distance = np.linalg.norm(self.r - self.target_position) # Calcula distância do target
 
-    # Troca o estado do agente caso seja tomada a ação
     def action(self):
+        """
+        Performs an action of changing the agent's state.
+
+        Changes the agent's state and resets the timer.
+        """
         self.state = 1 - self.state # Troca de estado
         self.timer = 0 # Reseta o timer
 
-    # Retorna estado atual do sistema (observável)
     def state_observation(self):
+        """
+        Returns the current state of the system.
+
+        Returns:
+            list: Current state of the system (observable).
+        """
         return [self.state, self.timer]
 
-    # Calcula a recompensa do agente
     def update_reward(self):
+        """
+        Updates the agent's reward.
+
+        Checks if the agent has found the target and updates the reward accordingly.
+        """
         self.trial_finished = False 
         self.reward = 0
         
@@ -113,9 +197,18 @@ class Environment(object):
             self.reward = 1
             self.trial_finished = True
 
-    # Realiza mudanças do ambiente
     def update_environment(self, action): 
+        """
+        Updates the environment based on the agent's action.
 
+        Performs the necessary updates to the environment based on the agent's action.
+
+        Args:
+            action (bool): Flag indicating if the agent should change its state.
+
+        Returns:
+            tuple: A tuple containing the reward and a flag indicating if the trial has finished.
+        """
         self.timer += 1 #atualiza timer do estado
         self.dr_theta = 0 #Não há movimento ABP
 
@@ -144,6 +237,12 @@ class Environment(object):
         return self.reward, self.trial_finished
     
     def save(self, path):
+        """
+        Saves the environment object to a file.
+
+        Args:
+            path (str): Path to the directory where the environment object will be saved.
+        """
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -152,6 +251,15 @@ class Environment(object):
 
     @staticmethod
     def load(path):
+        """
+        Loads the environment object from a file.
+
+        Args:
+            path (str): Path to the directory where the environment object is saved.
+
+        Returns:
+            Environment: The loaded environment object.
+        """
         if not os.path.exists(path):
             raise Exception("Diretório inexistente")
         else:

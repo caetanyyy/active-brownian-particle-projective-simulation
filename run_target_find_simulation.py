@@ -1,3 +1,4 @@
+
 import sys
 import numpy as np
 import argparse
@@ -76,6 +77,7 @@ def float_min_range(mini):
     return float_range_checker
 
 def read_args():
+    """Read command line arguments and return the parsed arguments"""
     parser = argparse.ArgumentParser(
         prog='run_target_find_simulation',
         description='Realiza a simulação de busca de alvo por uma partícula Browniana de estados ativos e passivos através de aprendizado pro reforço com simulação projetiva',
@@ -201,6 +203,7 @@ def read_args():
     return args
 
 def damping_params(args):
+    """Set damping parameters based on the Péclet number"""
   
     # Parâmetros de damping em função de Pe, de acordo com o artigo (seção de Métodos)
     damping_param = {
@@ -234,7 +237,7 @@ def damping_params(args):
     return args
 
 def create_models(args):
-
+    """Create the agent and environment models"""
     # Inicia ambiente
     env = env_class.Environment(
         args.box_size, 
@@ -273,6 +276,7 @@ def create_models(args):
     return agent, env
 
 def main(args):
+    """Main function to run the simulation"""
     # Gera os modelos
     if len(args.load_path) > 0:
         model = ps_model.ProjectiveSimulation.load(args.load_path)
