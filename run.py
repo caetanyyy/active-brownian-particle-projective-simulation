@@ -1,4 +1,3 @@
-
 import sys
 import numpy as np
 import argparse
@@ -11,12 +10,13 @@ from joblib import Parallel, delayed
 import gc
 import time
 
-sys.path.insert(0, 'agents')
-sys.path.insert(0, 'environments')
+from environments import PsEnvironment
+from agents import PsAgent
+from simulations import ProjectiveSimulation
 
-import ps_env_abp_target_find as env_class
-import ps_agent as agent_class
-import projective_simulation_iteration as ps_model
+env_class = PsEnvironment
+agent_class = PsAgent
+ps_model = ProjectiveSimulation
 
 @contextlib.contextmanager
 def tqdm_joblib(tqdm_object):
@@ -239,7 +239,7 @@ def damping_params(args):
 def create_models(args):
     """Create the agent and environment models"""
     # Inicia ambiente
-    env = env_class.Environment(
+    env = env_class(
         args.box_size, 
         args.peclet_number, 
         args.persistence, 
@@ -248,7 +248,7 @@ def create_models(args):
     )
     
     # Inicia agente
-    agent = agent_class.Agent(
+    agent = agent_class(
         env.num_actions, 
         env.num_percepts_list, 
         args.gamma_damping, 
@@ -279,12 +279,12 @@ def main(args):
     """Main function to run the simulation"""
     # Gera os modelos
     if len(args.load_path) > 0:
-        model = ps_model.ProjectiveSimulation.load(args.load_path)
+        model = ps_model.load(args.load_path)
 
     else:
         agent, env = create_models(args)
         # Gera a classe de simulação
-        model = ps_model.ProjectiveSimulation(agent, env)
+        model = ps_model(agent, env)
 
     # Treina os modelos
     learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)

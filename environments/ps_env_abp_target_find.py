@@ -1,7 +1,8 @@
 import numpy as np
 import pickle
+import os
 
-class Environment(object):
+class PsEnvironment(object):
     """
     Represents an environment for an active brownian particle target finding simulation.
 

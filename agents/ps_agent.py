@@ -1,8 +1,8 @@
 import numpy as np
 import pickle
+import os
 
-class Agent(object):
-    
+class PsAgent(object):
     def __init__(self, num_actions, num_percepts_list, gamma_damping, eta_glow_damping, policy_type, beta_softmax, num_reflections = 0):
         """Initialize the basic PS agent. Arguments: 
             - num_actions: integer >=1, 
