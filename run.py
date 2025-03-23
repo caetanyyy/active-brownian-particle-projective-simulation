@@ -178,6 +178,14 @@ def read_args():
     )
 
     parser.add_argument(
+        "--colision",
+        help="Define condições de contorno periódicas (False) ou fechadas (True).", 
+        type = bool,
+        default = False,
+        choices = [True, False]
+    )
+
+    parser.add_argument(
         "--save_path",
         help="Caminho para salvar modelos", 
         type = str,
@@ -244,7 +252,8 @@ def create_models(args):
         args.peclet_number, 
         args.persistence, 
         args.tao, 
-        args.dt
+        args.dt,
+        args.colision
     )
     
     # Inicia agente

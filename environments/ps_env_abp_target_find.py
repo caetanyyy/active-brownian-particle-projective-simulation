@@ -15,8 +15,11 @@ class PsEnvironment(object):
         rng (numpy.random.RandomState): Random number generator.
         max_steps_per_trial (int): Maximum steps per trial.
         num_states (int): Number of states (1 = active, 0 = passive).
+        colision_state (int): Numero de estados de colisão (1 = colidiu, 0 = não colidiu).
         num_actions (int): Number of actions (1 = state change, 0 = state maintain).
         num_percepts_list (list): Size of the observables.
+        allow_colision (bool): Indica se permite colisão com as paredes ou não.
+        colision (int): Indica se houve colisão (1) ou não (0) no último movimento.
         reward (float): Current reward.
         trial_finished (bool): Flag indicating if the trial has finished.
         r (numpy.ndarray): Current position of the agent.
@@ -38,7 +41,7 @@ class PsEnvironment(object):
         dr_dt (float): Sum of the movements.
     """
 
-    def __init__ (self, L, Pe, l, tao, dt):
+    def __init__ (self, L:float, Pe:float, l:float, tao:int, dt:float, allow_colision:bool = False):
         """
         Initializes the Environment object.
 
@@ -48,25 +51,41 @@ class PsEnvironment(object):
             l (float): Length scale.
             tao (int): Maximum steps per trial.
             dt (float): Time step size.
+            allow_colision (bool): Allow colision (true) or not (false)
+
         """
         # Gerador aleatório da classe:
         self.rng = np.random.RandomState(None)
 
         # Inicia variáveis do ambiente
+        # Estados
         self.max_steps_per_trial = tao # tempo máximo de uma rodada
         self.num_states = 2 # 1 = ativo ou 0 = passivo
+        self.colision_state = 2 # colisão ou não
+
+        #Ações
         self.num_actions = 2 # 1 = troca de estado, 0 = mantem estado
-        self.num_percepts_list = [self.num_states, self.max_steps_per_trial] # Tamanho dos observaveis
+
+        self.allow_colision = allow_colision
+        if allow_colision:
+            self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state] # Tamanho dos observaveis
+        else:
+            self.num_percepts_list = [self.num_states, self.max_steps_per_trial] # Tamanho dos observaveis
         
+        # Observáveis
+        self.state = 1 #0 ou 1
+        self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
+        self.colision = 0 #0 ou 1, mapeia se o agente teve colisão ou não com a parede
+
+        #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
         self.trial_finished = False # Inicia o episódio
 
+        # Espaço
         self.L = L # Dimensão do espaço
 
-        # Estado inicial do agente
-        self.r = np.array([0, 0]) #keeps track of where the agent is located
-        self.state = 1 #0 ou 1
-        self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
+        # Estado inicial do agente no Espaço
+        self.r = np.array([L/2, L/2]) #keeps track of where the agent is located
         self.distance = L #Distancia do agente para o target (inicialização)
 
         # Estado inicial do target
@@ -161,11 +180,38 @@ class PsEnvironment(object):
         """
         self.E_t = np.array([
             self.rng.normal(), 
-            self.rng.normal()]) # Calcula o ruído do movimento BP
+            self.rng.normal()
+        ]) # Calcula o ruído do movimento BP
         self.dr = np.sqrt(2*self.D*self.dt)*self.E_t # Calcula a componente de movimento BP
         self.dr_dt = self.dr_theta + self.dr
-        self.r = (self.r + self.dr_dt)%self.L # Atualiza posição do agente
-        self.distance = np.linalg.norm(self.r - self.target_position) # Calcula distância do target
+        self.r = (self.r + self.dr_dt)
+
+        if self.allow_colision: # Se pode haver colisão
+            self.colision = 0
+            self.r[0] = self.wall_reflection(self.r[0]) # Detecta colisão no eixo X
+            self.r[1] = self.wall_reflection(self.r[1]) # Detecta colisão no eixo Y 
+            
+        else: # Se o agente não colide na parede, as condições são periódicas
+            self.r = self.r%self.L # Atualiza posição do agente de acordo com as condições periódicas
+
+        # Calcula a distância entre o agente e o alvo
+        self.target_distance()
+
+    def wall_reflection(self, x):
+        if x < 0:
+            x = -x
+            self.colision = 1
+        elif x > self.L:
+            x = 2*self.L - x
+            self.colision = 1
+        return x
+    
+    def target_distance(self):
+        diff = np.abs(self.r - self.target_position)
+        if not self.allow_colision: #Condições de contorno periódicas
+            diff = np.minimum(diff, self.L - diff)
+
+        self.distance = np.linalg.norm(diff)
 
     def action(self):
         """
@@ -183,6 +229,9 @@ class PsEnvironment(object):
         Returns:
             list: Current state of the system (observable).
         """
+        if self.allow_colision:
+            return [self.state, self.timer, self.colision]
+        
         return [self.state, self.timer]
 
     def update_reward(self):

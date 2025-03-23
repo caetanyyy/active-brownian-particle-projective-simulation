@@ -21,7 +21,6 @@ class PsAgent(object):
         self.policy_type = policy_type
         self.beta_softmax = beta_softmax
         self.num_reflections = num_reflections
-
         self.num_percepts = int(np.prod(np.array(self.num_percepts_list).astype(np.float64))) # total number of possible percepts
         
         self.h_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
