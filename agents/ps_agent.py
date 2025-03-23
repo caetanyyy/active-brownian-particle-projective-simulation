@@ -60,7 +60,7 @@ class PsAgent(object):
             if self.e_matrix[action, percept]:
                 break
             action = self.rng.choice(self.num_actions, p=self.probability_distr(percept))		
-
+        
         self.g_matrix = (1 - self.eta_glow_damping) * self.g_matrix
         self.g_matrix[action, percept] += 1 #record latest decision in g_matrix
         

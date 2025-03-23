@@ -113,7 +113,8 @@ class PsEnvironment(object):
         """
         self.target_position = np.array([
             self.rng.rand()*self.L, 
-            self.rng.rand()*self.L])
+            self.rng.rand()*self.L
+        ])
 
     def reset_agent_state(self, new_state):
         """
