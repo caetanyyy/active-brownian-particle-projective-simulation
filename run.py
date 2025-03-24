@@ -179,7 +179,7 @@ def read_args():
 
     parser.add_argument(
         "--colision",
-        help="Define condições decontorno periódicas (False) ou fechadas (True).", 
+        help="Define condições decontorno periódicas (0) ou fechadas (1).", 
         type = int,
         choices = [0, 1]
     )
