@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import os
+import time
 
 class PsEnvironment(object):
     """
@@ -67,13 +68,15 @@ class PsEnvironment(object):
         self.num_actions = 2 # 1 = troca de estado, 0 = mantem estado
 
         self.allow_colision = allow_colision
+
         if allow_colision:
             self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state] # Tamanho dos observaveis
+        
         else:
             self.num_percepts_list = [self.num_states, self.max_steps_per_trial] # Tamanho dos observaveis
         
         # Observáveis
-        self.state = 1 #0 ou 1
+        self.state = 0 #0 ou 1
         self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
         self.colision = 0 #0 ou 1, mapeia se o agente teve colisão ou não com a parede
 
@@ -85,7 +88,7 @@ class PsEnvironment(object):
         self.L = L # Dimensão do espaço
 
         # Estado inicial do agente no Espaço
-        self.r = np.array([L/2, L/2]) #keeps track of where the agent is located
+        self.r = np.array([0,0]) #keeps track of where the agent is located
         self.distance = L #Distancia do agente para o target (inicialização)
 
         # Estado inicial do target
@@ -197,10 +200,12 @@ class PsEnvironment(object):
         # Calcula a distância entre o agente e o alvo
         self.target_distance()
 
+
     def wall_reflection(self, x):
         if x < 0:
             x = -x
             self.colision = 1
+
         elif x > self.L:
             x = 2*self.L - x
             self.colision = 1
@@ -210,6 +215,7 @@ class PsEnvironment(object):
         diff = np.abs(self.r - self.target_position)
         if not self.allow_colision: #Condições de contorno periódicas
             diff = np.minimum(diff, self.L - diff)
+
 
         self.distance = np.linalg.norm(diff)
 
@@ -260,6 +266,7 @@ class PsEnvironment(object):
         Returns:
             tuple: A tuple containing the reward and a flag indicating if the trial has finished.
         """
+
         self.timer += 1 #atualiza timer do estado
         self.dr_theta = 0 #Não há movimento ABP
 

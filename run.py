@@ -179,10 +179,9 @@ def read_args():
 
     parser.add_argument(
         "--colision",
-        help="Define condições de contorno periódicas (False) ou fechadas (True).", 
-        type = bool,
-        default = False,
-        choices = [True, False]
+        help="Define condições decontorno periódicas (False) ou fechadas (True).", 
+        type = int,
+        choices = [0, 1]
     )
 
     parser.add_argument(
@@ -300,13 +299,13 @@ def main(args):
     
     if len(args.save_path) > 0:
         filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
-        model.save(args.save_path+'/'+filename_time)
+        model.save(args.save_path + '/' + filename_time)
 
-        with open(args.save_path+'/'+filename_time +'/args.json', 'w') as fp:
+        with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
             json.dump(vars(args), fp)
 
-        np.savetxt(args.save_path+'/'+filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
-        np.savetxt(args.save_path+'/'+filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+        np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
     if len(args.load_path) > 0:
         del agent
