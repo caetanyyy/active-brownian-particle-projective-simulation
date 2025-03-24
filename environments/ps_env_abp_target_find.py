@@ -88,7 +88,7 @@ class PsEnvironment(object):
         self.L = L # Dimensão do espaço
 
         # Estado inicial do agente no Espaço
-        self.r = np.array([0,0]) #keeps track of where the agent is located
+        self.r = np.array([L/2,L/2]) #keeps track of where the agent is located
         self.distance = L #Distancia do agente para o target (inicialização)
 
         # Estado inicial do target

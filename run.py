@@ -266,17 +266,32 @@ def create_models(args):
         args.num_reflections
     )
 
-    # Inicia matriz de probabilidade de acordo com o artigo
-    for step in range(env.max_steps_per_trial):
-        for state in range(env.num_states):
-            percept = agent.percept_preprocess([state,step])
-            if state == 0:
-                agent.h_matrix[1, percept] = 1e-2
-                agent.h_matrix[0, percept] = 1 - 1e-2
+    if args.colision:
+        # Inicia matriz de probabilidade de acordo com o artigo
+        for step in range(env.max_steps_per_trial):
+            for colision in range(env.colision_state):
+                for state in range(env.num_states):
+                    percept = agent.percept_preprocess([state,step,colision])
+                    if state == 0:
+                        agent.h_matrix[1, percept] = 1e-2
+                        agent.h_matrix[0, percept] = 1 - 1e-2
 
-            elif state == 1:
-                agent.h_matrix[1, percept] = 1e-3
-                agent.h_matrix[0, percept] = 1 - 1e-3
+                    elif state == 1:
+                        agent.h_matrix[1, percept] = 1e-3
+                        agent.h_matrix[0, percept] = 1 - 1e-3
+
+    else:
+        # Inicia matriz de probabilidade de acordo com o artigo
+        for step in range(env.max_steps_per_trial):
+            for state in range(env.num_states):
+                percept = agent.percept_preprocess([state,step])
+                if state == 0:
+                    agent.h_matrix[1, percept] = 1e-2
+                    agent.h_matrix[0, percept] = 1 - 1e-2
+
+                elif state == 1:
+                    agent.h_matrix[1, percept] = 1e-3
+                    agent.h_matrix[0, percept] = 1 - 1e-3
 
     # Matriz h0 inicial é estática
     agent.h0_matrix = agent.h_matrix
