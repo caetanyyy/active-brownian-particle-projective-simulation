@@ -109,7 +109,7 @@ def read_args():
         "--dt", "--t",
         help="Intervalo de tempo de cada passo da simulação. Deve estar no intervalo [1e-4 e 1] Por padrão, o tempo típico (Tao) := dt x 1e4", 
         type=float_range(1e-4, 1),
-        default=1
+        default = 1
     )
 
     parser.add_argument(
@@ -179,7 +179,7 @@ def read_args():
 
     parser.add_argument(
         "--colision",
-        help="Define condições decontorno periódicas (0) ou fechadas (1).", 
+        help="Define condições decontorno periódicas (False) ou fechadas (True).", 
         type = int,
         choices = [0, 1]
     )
