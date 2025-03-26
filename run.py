@@ -202,8 +202,8 @@ def read_args():
     parser.add_argument(
         "--load_path_list",
         help="Lista de modelos para carregar", 
-        type = list,
-        default = []
+        type = str,
+        default = ''
     )
 
     args = parser.parse_args()
@@ -310,21 +310,21 @@ def main(args, load_path_from_list = ''):
     """Main function to run the simulation"""
     # Gera os modelos
 
-    num_episodes = args['num_episodes']
-    max_steps_per_episode = args['max_steps_per_episode']
+    num_episodes = args.num_episodes
+    max_steps_per_episode = args.max_steps_per_episode
 
     prev_episodes = 0
 
     if len(load_path_from_list) > 0:
-        args['load_path'] = load_path_from_list 
-        args['save_path'] = load_path_from_list
+        args.load_path = load_path_from_list 
+        args.save_path = load_path_from_list
 
-    if len(args['load_path']) > 0:
-        model = ps_model.load(args['load_path'])
+    if len(args.load_path) > 0:
+        model = ps_model.load(args.load_path)
         learning_process = np.loadtxt(
-            f'{args['load_path']}/learning_process.txt'
+            f'{args.load_path}/learning_process.txt'
         )
-        with open(f'{args['load_path']}/args.json', 'r') as file:
+        with open(f'{args.load_path}/args.json', 'r') as file:
             load_args = json.load(file)
             max_steps_per_episode = load_args['max_steps_per_episode']
             prev_episodes = load_args['num_episodes']
@@ -339,22 +339,34 @@ def main(args, load_path_from_list = ''):
     _ = model.fit(num_episodes, max_steps_per_episode)
     learning_process = np.append(learning_process, _)
     
-    args['num_episodes'] = num_episodes + prev_episodes
+    args.num_episodes = num_episodes + prev_episodes
 
     if len(args.save_path) > 0:
-        filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
-        model.save(args.save_path + '/' + filename_time)
+        if len(args.load_path) > 0:
+            model.save(args.save_path)
 
-        with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
-            json.dump(vars(args), fp)
+            with open(args.save_path + '/args.json', 'w') as fp:
+                json.dump(vars(args), fp)
 
-        np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
-        np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+            np.savetxt(args.save_path + '/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+            np.savetxt(args.save_path + '/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
-    del agent
+        else:
+            filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
+            model.save(args.save_path + '/' + filename_time)
+
+            with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
+                json.dump(vars(args), fp)
+
+            np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+            np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+            del filename_time
+
+    if len(args.load_path) == 0:
+        del agent
+        del env
     del model
     del learning_process
-    del filename_time
 
     gc.collect()
     
@@ -365,16 +377,17 @@ if __name__ == "__main__":
     start_time = time.time()
     n_jobs = args.n_jobs
     n_sim = args.n_sim
+    if len(args.save_path):
+        if not os.path.exists(args.save_path):
+            os.makedirs(args.save_path, exist_ok = True)
 
-    if len(args['save_path']):
-        if not os.path.exists(args['save_path']):
-            os.makedirs(args['save_path'], exist_ok = True)
+    if len(args.load_path_list) > 0:
+        args.load_path_list = args.load_path_list.split(",")
     # Se for realizada a paralelização:
-
     # Se tiver mais de um arquivo para carregar
     if (n_jobs != 1):
-        if len(args['load_path_list']) > 0:
-            n_sim = len(args['load_path_list'])
+        if len(args.load_path_list) > 0:
+            n_sim = len(args.load_path_list)
             with tqdm_joblib(
                 tqdm(
                     desc = "Simulações finalizadas:", 
@@ -385,7 +398,7 @@ if __name__ == "__main__":
                 Parallel(
                     n_jobs = n_jobs,
                     backend = "multiprocessing"
-                )(delayed(main)(args, args['load_path_list'][sim]) for sim in range(n_sim))
+                )(delayed(main)(args, args.load_path_list[sim]) for sim in range(n_sim))
 
         elif (n_sim > 1):
             with tqdm_joblib(
@@ -402,9 +415,9 @@ if __name__ == "__main__":
     
     # Se for execução sequencial:
     else:
-        if len(args['load_path_list']) > 0:
-            for sim in tqdm(range(len(args['load_path_list'])), position = 0):
-                main(args, args['load_path_list'][sim])
+        if len(args.load_path_list) > 0:
+            for sim in tqdm(range(len(args.load_path_list)), position = 0):
+                main(args, args.load_path_list[sim])
         else:
             for sim in tqdm(range(args.n_sim), position = 0):
                 main(args)
