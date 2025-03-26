@@ -9,6 +9,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import gc
 import time
+import os
 
 from environments import PsEnvironment
 from agents import PsAgent
@@ -198,6 +199,13 @@ def read_args():
         default=''
     )
 
+    parser.add_argument(
+        "--load_path_list",
+        help="Lista de modelos para carregar", 
+        type = list,
+        default = []
+    )
+
     args = parser.parse_args()
 
     if args.damping_flag:
@@ -298,20 +306,41 @@ def create_models(args):
 
     return agent, env
 
-def main(args):
+def main(args, load_path_from_list = ''):
     """Main function to run the simulation"""
     # Gera os modelos
-    if len(args.load_path) > 0:
-        model = ps_model.load(args.load_path)
+
+    num_episodes = args['num_episodes']
+    max_steps_per_episode = args['max_steps_per_episode']
+
+    prev_episodes = 0
+
+    if len(load_path_from_list) > 0:
+        args['load_path'] = load_path_from_list 
+        args['save_path'] = load_path_from_list
+
+    if len(args['load_path']) > 0:
+        model = ps_model.load(args['load_path'])
+        learning_process = np.loadtxt(
+            f'{args['load_path']}/learning_process.txt'
+        )
+        with open(f'{args['load_path']}/args.json', 'r') as file:
+            load_args = json.load(file)
+            max_steps_per_episode = load_args['max_steps_per_episode']
+            prev_episodes = load_args['num_episodes']
 
     else:
         agent, env = create_models(args)
         # Gera a classe de simulação
         model = ps_model(agent, env)
+        learning_process = []
 
     # Treina os modelos
-    learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
+    _ = model.fit(num_episodes, max_steps_per_episode)
+    learning_process = np.append(learning_process, _)
     
+    args['num_episodes'] = num_episodes + prev_episodes
+
     if len(args.save_path) > 0:
         filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
         model.save(args.save_path + '/' + filename_time)
@@ -322,12 +351,11 @@ def main(args):
         np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
         np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
-    if len(args.load_path) > 0:
-        del agent
-        del model
-        
+    del agent
+    del model
     del learning_process
     del filename_time
+
     gc.collect()
     
     return 0
@@ -335,19 +363,51 @@ def main(args):
 if __name__ == "__main__":
     args = read_args()
     start_time = time.time()
+    n_jobs = args.n_jobs
+    n_sim = args.n_sim
 
+    if len(args['save_path']):
+        if not os.path.exists(args['save_path']):
+            os.makedirs(args['save_path'], exist_ok = True)
     # Se for realizada a paralelização:
-    if (args.n_jobs != 1) & (args.n_sim > 1):
-        with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
-            Parallel(
-                n_jobs = args.n_jobs,
-                backend = "multiprocessing"
-            )(delayed(main)(args) for sim in range(args.n_sim))
+
+    # Se tiver mais de um arquivo para carregar
+    if (n_jobs != 1):
+        if len(args['load_path_list']) > 0:
+            n_sim = len(args['load_path_list'])
+            with tqdm_joblib(
+                tqdm(
+                    desc = "Simulações finalizadas:", 
+                    total = n_sim, 
+                    position = 0
+                )
+            ) as progress_bar:
+                Parallel(
+                    n_jobs = n_jobs,
+                    backend = "multiprocessing"
+                )(delayed(main)(args, args['load_path_list'][sim]) for sim in range(n_sim))
+
+        elif (n_sim > 1):
+            with tqdm_joblib(
+                tqdm(
+                        desc = "Simulações finalizadas:", 
+                        total = n_sim, 
+                        position = 0
+                    )
+            ) as progress_bar:
+                Parallel(
+                    n_jobs = n_jobs,
+                    backend = "multiprocessing"
+                )(delayed(main)(args) for sim in range(n_sim))
     
     # Se for execução sequencial:
     else:
-        for sim in tqdm(range(args.n_sim), position = 0):
-            main(args)
+        if len(args['load_path_list']) > 0:
+            for sim in tqdm(range(len(args['load_path_list'])), position = 0):
+                main(args, args['load_path_list'][sim])
+        else:
+            for sim in tqdm(range(args.n_sim), position = 0):
+                main(args)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
