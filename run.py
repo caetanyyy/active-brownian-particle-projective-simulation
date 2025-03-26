@@ -306,9 +306,31 @@ def create_models(args):
 
     return agent, env
 
-def main(args, load_path_from_list = ''):
+def save_data(model, args, learning_process, ep, filename_time, prev_episodes):
+    args.num_episodes = ep + prev_episodes
+
+    if len(args.load_path) > 0:
+        model.save(args.save_path)
+
+        with open(args.save_path + '/args.json', 'w') as fp:
+            json.dump(vars(args), fp)
+
+        np.savetxt(args.save_path + '/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args.save_path + '/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+
+    else:
+        model.save(args.save_path + '/' + filename_time)
+
+        with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
+            json.dump(vars(args), fp)
+
+        np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+
+def main(args, sim, load_path_from_list = ''):
     """Main function to run the simulation"""
     # Gera os modelos
+    filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now()) + f'__{sim}'
 
     num_episodes = args.num_episodes
     max_steps_per_episode = args.max_steps_per_episode
@@ -333,40 +355,26 @@ def main(args, load_path_from_list = ''):
         agent, env = create_models(args)
         # Gera a classe de simulação
         model = ps_model(agent, env)
-        learning_process = []
+        learning_process = np.array([])
+        prev_episodes = 0
 
     # Treina os modelos
-    _ = model.fit(num_episodes, max_steps_per_episode)
-    learning_process = np.append(learning_process, _)
+    #_ = model.fit(num_episodes, max_steps_per_episode)
     
-    args.num_episodes = num_episodes + prev_episodes
-
-    if len(args.save_path) > 0:
-        if len(args.load_path) > 0:
-            model.save(args.save_path)
-
-            with open(args.save_path + '/args.json', 'w') as fp:
-                json.dump(vars(args), fp)
-
-            np.savetxt(args.save_path + '/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
-            np.savetxt(args.save_path + '/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
-
-        else:
-            filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
-            model.save(args.save_path + '/' + filename_time)
-
-            with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
-                json.dump(vars(args), fp)
-
-            np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
-            np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
-            del filename_time
+    for ep in range(num_episodes):
+        step = model.run_episode(max_steps_per_episode)
+        _ = step / model.env.max_steps_per_trial
+        learning_process = np.append(learning_process, _)
+        if len(args.save_path) > 0:
+            save_data(model, args, learning_process, ep + 1, filename_time, prev_episodes)
 
     if len(args.load_path) == 0:
         del agent
         del env
+
     del model
     del learning_process
+    del filename_time
 
     gc.collect()
     
@@ -398,7 +406,7 @@ if __name__ == "__main__":
                 Parallel(
                     n_jobs = n_jobs,
                     backend = "multiprocessing"
-                )(delayed(main)(args, args.load_path_list[sim]) for sim in range(n_sim))
+                )(delayed(main)(args, sim, args.load_path_list[sim]) for sim in range(n_sim))
 
         elif (n_sim > 1):
             with tqdm_joblib(
@@ -411,16 +419,16 @@ if __name__ == "__main__":
                 Parallel(
                     n_jobs = n_jobs,
                     backend = "multiprocessing"
-                )(delayed(main)(args) for sim in range(n_sim))
+                )(delayed(main)(args, sim) for sim in range(n_sim))
     
     # Se for execução sequencial:
     else:
         if len(args.load_path_list) > 0:
             for sim in tqdm(range(len(args.load_path_list)), position = 0):
-                main(args, args.load_path_list[sim])
+                main(args, sim, args.load_path_list[sim])
         else:
             for sim in tqdm(range(args.n_sim), position = 0):
-                main(args)
+                main(args, 0)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 

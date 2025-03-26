@@ -76,6 +76,7 @@ class PsAgent(object):
             h_vector = self.beta_softmax * self.h_matrix[:, percept]
             h_vector_mod = h_vector - np.max(h_vector)
             probability_distr = np.exp(h_vector_mod) / np.sum(np.exp(h_vector_mod))
+        print(probability_distr)
         return probability_distr
     
     def reset_glow_matrix(self):

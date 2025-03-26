@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import pickle
+import time
 
 class ProjectiveSimulation(object):
     """
@@ -33,9 +34,13 @@ class ProjectiveSimulation(object):
         self.env = environment
     
     def run_learning_step(self):
-        observation = self.env.state_observation() # Observação: [Estado (0,1), Quantidade de passos no estado (0,...,tao-1)]
+        observation = self.env.state_observation() # Observação: [Estado (0,1), Quantidade de passos no estado (0,...,tao-1), colisão ou não]
+        print(observation)
         action = self.agent.deliberate(observation) # Agente toma uma ação (0 = Manter estado, 1 = Trocar de estado)
+        print(action)
         reward, done = self.env.update_environment(action) # Atualiza o ambiente de acordo com a ação do agente
+        #print(reward)
+        #print(self.env.r)
         self.agent.learn(reward) # Realiza aprendizado do agente de acordo com a recompensa recebida
         return done
 
@@ -58,6 +63,8 @@ class ProjectiveSimulation(object):
             self.reset_agent()
 
         for step in range(max_steps_per_episode):
+            print(step)
+
             done = self.run_learning_step()
             if done:
                 break
