@@ -87,7 +87,7 @@ class PsEnvironment(object):
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
         self.trial_finished = False # Inicia o episódio
-
+        self.colision_reward = 0.01
         # Espaço
         self.L = L # Dimensão do espaço
 
@@ -257,7 +257,7 @@ class PsEnvironment(object):
         if self.allow_colision:
             if (self.prev_colision) & (self.prev_state) & (not self.state):
             #if (self.prev_colision) & (not self.state):
-                self.reward = self.reward + 1
+                self.reward = self.reward + self.colision_reward
 
         # se encontrou o target (apenas no estado BP), ganha a recompensa e reseta a posição do target
         if (self.distance < self.target_radius) & (not self.state): 

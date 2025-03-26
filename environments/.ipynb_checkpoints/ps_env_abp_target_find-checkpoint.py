@@ -77,13 +77,17 @@ class PsEnvironment(object):
         
         # Observáveis
         self.state = 0 #0 ou 1
+        self.prev_state = 0 #0 ou 1 # guarda o estado anterior
+
         self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
+
         self.colision = 0 #0 ou 1, mapeia se o agente teve colisão ou não com a parede
+        self.prev_colision = 0 #0 ou 1, mapeia se o agente teve colisão no passo anterior
 
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
         self.trial_finished = False # Inicia o episódio
-
+        self.colision_reward = 0.01
         # Espaço
         self.L = L # Dimensão do espaço
 
@@ -216,7 +220,6 @@ class PsEnvironment(object):
         if not self.allow_colision: #Condições de contorno periódicas
             diff = np.minimum(diff, self.L - diff)
 
-
         self.distance = np.linalg.norm(diff)
 
     def action(self):
@@ -225,6 +228,7 @@ class PsEnvironment(object):
 
         Changes the agent's state and resets the timer.
         """
+        self.prev_state = self.state
         self.state = 1 - self.state # Troca de estado
         self.timer = 0 # Reseta o timer
 
@@ -249,9 +253,15 @@ class PsEnvironment(object):
         self.trial_finished = False 
         self.reward = 0
         
+        ## Criar uma recompensa para quando o target sai da colisão
+        if self.allow_colision:
+            if (self.prev_colision) & (self.prev_state) & (not self.state):
+            #if (self.prev_colision) & (not self.state):
+                self.reward = self.reward + self.colision_reward
+
         # se encontrou o target (apenas no estado BP), ganha a recompensa e reseta a posição do target
         if (self.distance < self.target_radius) & (not self.state): 
-            self.reward = 1
+            self.reward = self.reward + 1
             self.trial_finished = True
 
     def update_environment(self, action): 
@@ -292,6 +302,8 @@ class PsEnvironment(object):
             if self.state == 1: # Se o no estado é o estado ABP
                 self.reset_agent_ABP()
 
+        self.prev_colision = self.colision
+        
         return self.reward, self.trial_finished
     
     def save(self, path):
