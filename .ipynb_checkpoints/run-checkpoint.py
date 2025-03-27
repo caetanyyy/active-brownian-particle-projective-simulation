@@ -9,6 +9,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import gc
 import time
+import os
 
 from environments import PsEnvironment
 from agents import PsAgent
@@ -109,7 +110,7 @@ def read_args():
         "--dt", "--t",
         help="Intervalo de tempo de cada passo da simulação. Deve estar no intervalo [1e-4 e 1] Por padrão, o tempo típico (Tao) := dt x 1e4", 
         type=float_range(1e-4, 1),
-        default=1
+        default = 1
     )
 
     parser.add_argument(
@@ -198,6 +199,13 @@ def read_args():
         default=''
     )
 
+    parser.add_argument(
+        "--load_path_list",
+        help="Lista de modelos para carregar", 
+        type = str,
+        default = ''
+    )
+
     args = parser.parse_args()
 
     if args.damping_flag:
@@ -266,53 +274,102 @@ def create_models(args):
         args.num_reflections
     )
 
-    # Inicia matriz de probabilidade de acordo com o artigo
-    for step in range(env.max_steps_per_trial):
-        for state in range(env.num_states):
-            percept = agent.percept_preprocess([state,step])
-            if state == 0:
-                agent.h_matrix[1, percept] = 1e-2
-                agent.h_matrix[0, percept] = 1 - 1e-2
+    if args.colision:
+        # Inicia matriz de probabilidade de acordo com o artigo
+        for step in range(env.max_steps_per_trial):
+            for colision in range(env.colision_state):
+                for state in range(env.num_states):
+                    percept = agent.percept_preprocess([state,step,colision])
+                    if state == 0:
+                        agent.h_matrix[1, percept] = 1e-2
+                        agent.h_matrix[0, percept] = 1 - 1e-2
 
-            elif state == 1:
-                agent.h_matrix[1, percept] = 1e-3
-                agent.h_matrix[0, percept] = 1 - 1e-3
+                    elif state == 1:
+                        agent.h_matrix[1, percept] = 1e-3
+                        agent.h_matrix[0, percept] = 1 - 1e-3
+
+    else:
+        # Inicia matriz de probabilidade de acordo com o artigo
+        for step in range(env.max_steps_per_trial):
+            for state in range(env.num_states):
+                percept = agent.percept_preprocess([state,step])
+                if state == 0:
+                    agent.h_matrix[1, percept] = 1e-2
+                    agent.h_matrix[0, percept] = 1 - 1e-2
+
+                elif state == 1:
+                    agent.h_matrix[1, percept] = 1e-3
+                    agent.h_matrix[0, percept] = 1 - 1e-3
 
     # Matriz h0 inicial é estática
     agent.h0_matrix = agent.h_matrix
 
     return agent, env
 
-def main(args):
+def save_data(model, args, learning_process, ep, filename_time, prev_episodes, load_path):
+    if len(load_path) > 0:
+        args['num_episodes'] = ep + prev_episodes
+        model.save(load_path)
+        with open(load_path + '/args.json', 'w') as fp:
+            json.dump(args, fp)
+        np.savetxt(load_path + '/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(load_path + '/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+
+    else:
+        args.num_episodes = ep + prev_episodes
+        model.save(args.save_path + '/' + filename_time)
+        with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
+            json.dump(vars(args), fp)
+        np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+
+def main(args, sim, load_path = ''):
     """Main function to run the simulation"""
     # Gera os modelos
-    if len(args.load_path) > 0:
-        model = ps_model.load(args.load_path)
+    filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now()) + f'__{sim}'
+    num_episodes = args.num_episodes
+
+    if len(load_path) > 0:
+        model = ps_model.load(load_path)
+        learning_process = np.loadtxt(
+            f'{load_path}/learning_process.txt'
+        )
+
+        with open(f'{load_path}/args.json', 'r') as file:
+            args = json.load(file)
+
+        prev_episodes = args['num_episodes']
+        args['load_path'] = load_path
+        save_path = load_path
+        max_steps_per_episode = args['max_steps_per_episode']
 
     else:
         agent, env = create_models(args)
         # Gera a classe de simulação
         model = ps_model(agent, env)
+        learning_process = np.array([])
+        prev_episodes = 0
+        max_steps_per_episode = args.max_steps_per_episode
+        save_path = args.save_path
 
     # Treina os modelos
-    learning_process = model.fit(args.num_episodes, args.max_steps_per_episode)
+    #_ = model.fit(num_episodes, max_steps_per_episode)
     
-    if len(args.save_path) > 0:
-        filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now())
-        model.save(args.save_path + '/' + filename_time)
+    for ep in range(num_episodes):
+        step = model.run_episode(max_steps_per_episode)
+        _ = step / model.env.max_steps_per_trial
+        learning_process = np.append(learning_process, _)
+        if len(save_path) > 0:
+            save_data(model, args, learning_process, ep + 1, filename_time, prev_episodes, load_path)
 
-        with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
-            json.dump(vars(args), fp)
-
-        np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
-        np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
-
-    if len(args.load_path) > 0:
+    if len(load_path) == 0:
         del agent
-        del model
-        
+        del env
+
+    del model
     del learning_process
     del filename_time
+
     gc.collect()
     
     return 0
@@ -320,19 +377,53 @@ def main(args):
 if __name__ == "__main__":
     args = read_args()
     start_time = time.time()
+    n_jobs = args.n_jobs
+    n_sim = args.n_sim
+    if len(args.save_path):
+        if not os.path.exists(args.save_path):
+            os.makedirs(args.save_path, exist_ok = True)
+
+    if len(args.load_path_list) > 0:
+        args.load_path_list = args.load_path_list.split(",")
 
     # Se for realizada a paralelização:
-    if (args.n_jobs != 1) & (args.n_sim > 1):
-        with tqdm_joblib(tqdm(desc="Simulações finalizadas:", total=args.n_sim, position = 0)) as progress_bar:
-            Parallel(
-                n_jobs = args.n_jobs,
-                backend = "multiprocessing"
-            )(delayed(main)(args) for sim in range(args.n_sim))
+    # Se tiver mais de um arquivo para carregar
+    if (n_jobs != 1):
+        if len(args.load_path_list) > 0:
+            n_sim = len(args.load_path_list)
+            with tqdm_joblib(
+                tqdm(
+                    desc = "Simulações finalizadas:", 
+                    total = n_sim, 
+                    position = 0
+                )
+            ) as progress_bar:
+                Parallel(
+                    n_jobs = n_jobs,
+                    backend = "multiprocessing"
+                )(delayed(main)(args, sim, args.load_path_list[sim]) for sim in range(n_sim))
+
+        elif (n_sim > 1):
+            with tqdm_joblib(
+                tqdm(
+                        desc = "Simulações finalizadas:", 
+                        total = n_sim, 
+                        position = 0
+                    )
+            ) as progress_bar:
+                Parallel(
+                    n_jobs = n_jobs,
+                    backend = "multiprocessing"
+                )(delayed(main)(args, sim) for sim in range(n_sim))
     
     # Se for execução sequencial:
     else:
-        for sim in tqdm(range(args.n_sim), position = 0):
-            main(args)
+        if len(args.load_path_list) > 0:
+            for sim in tqdm(range(len(args.load_path_list)), position = 0):
+                main(args, sim, args.load_path_list[sim])
+        else:
+            for sim in tqdm(range(args.n_sim), position = 0):
+                main(args, 0)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 

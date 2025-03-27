@@ -87,7 +87,7 @@ class PsEnvironment(object):
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
         self.trial_finished = False # Inicia o episódio
-        self.colision_reward = 0.01
+        self.colision_reward = 0.005
         # Espaço
         self.L = L # Dimensão do espaço
 
