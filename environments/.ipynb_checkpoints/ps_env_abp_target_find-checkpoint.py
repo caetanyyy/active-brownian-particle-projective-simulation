@@ -279,6 +279,7 @@ class PsEnvironment(object):
 
         self.timer += 1 #atualiza timer do estado
         self.dr_theta = 0 #Não há movimento ABP
+        self.prev_colision = self.colision
 
         #Se houver ação de troca de estado
         if action: 
@@ -302,7 +303,9 @@ class PsEnvironment(object):
             if self.state == 1: # Se o no estado é o estado ABP
                 self.reset_agent_ABP()
 
-        self.prev_colision = self.colision
+        #if (self.prev_colision != self.colision) & (self.allow_colision): # Se a há mudança no estado de colisão, reseta o timer
+        # Adicionar um timer apenas para a colisão
+        #    self.timer = 0
         
         return self.reward, self.trial_finished
     

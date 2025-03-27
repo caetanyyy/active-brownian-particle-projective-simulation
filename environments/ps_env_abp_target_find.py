@@ -71,6 +71,8 @@ class PsEnvironment(object):
 
         if allow_colision:
             self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state] # Tamanho dos observaveis
+            #self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state, self.max_steps_per_trial] # Tamanho dos observaveis (com timer de colisao)
+
         
         else:
             self.num_percepts_list = [self.num_states, self.max_steps_per_trial] # Tamanho dos observaveis
@@ -80,6 +82,7 @@ class PsEnvironment(object):
         self.prev_state = 0 #0 ou 1 # guarda o estado anterior
 
         self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
+        #self.timer_colision = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em colisão
 
         self.colision = 0 #0 ou 1, mapeia se o agente teve colisão ou não com a parede
         self.prev_colision = 0 #0 ou 1, mapeia se o agente teve colisão no passo anterior
@@ -87,7 +90,8 @@ class PsEnvironment(object):
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
         self.trial_finished = False # Inicia o episódio
-        self.colision_reward = 0.005
+        self.colision_reward = 0.005 # Recompensa por sair do estado ativo em uma colisão
+
         # Espaço
         self.L = L # Dimensão do espaço
 
@@ -279,6 +283,7 @@ class PsEnvironment(object):
 
         self.timer += 1 #atualiza timer do estado
         self.dr_theta = 0 #Não há movimento ABP
+        self.prev_colision = self.colision
 
         #Se houver ação de troca de estado
         if action: 
@@ -301,8 +306,13 @@ class PsEnvironment(object):
             self.action()
             if self.state == 1: # Se o no estado é o estado ABP
                 self.reset_agent_ABP()
-
-        self.prev_colision = self.colision
+        
+        #if (self.colision) & (self.allow_colision): Se está em colisão, atualiza o timer
+        #    self.timer_colision += 1
+        
+        #if (self.prev_colision) & (not self.colision) & (self.allow_colision): # Se a há mudança no estado de colisão, reseta o timer
+        # Adicionar um timer apenas para a colisão
+        #    self.timer_colision = 0
         
         return self.reward, self.trial_finished
     
