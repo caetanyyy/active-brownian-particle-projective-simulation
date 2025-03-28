@@ -12,6 +12,7 @@ class PsAgent(object):
             - policy_type: string, 'standard' or 'softmax'; toggles the rule used to compute probabilities from h-values
             - beta_softmax: float >=0, probabilities are proportional to exp(beta*h_value). If policy_type != 'softmax', then this is irrelevant.
         """
+        
         self.rng = np.random.RandomState(None)
         
         self.num_actions = num_actions
@@ -21,15 +22,33 @@ class PsAgent(object):
         self.policy_type = policy_type
         self.beta_softmax = beta_softmax
         self.num_reflections = num_reflections
-        self.num_percepts = int(np.prod(np.array(self.num_percepts_list).astype(np.float64))) # total number of possible percepts
+        self.num_percepts = int(
+            np.prod(
+                np.array(self.num_percepts_list).astype(np.float64)
+            )
+        ) # total number of possible percepts
         
-        self.h_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
-        self.h0_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.float64) #Note: the first index specifies the action, the second index specifies the percept.
-        self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64) #glow matrix, for processing delayed rewards
+        self.h_matrix = np.ones(
+            (self.num_actions, self.num_percepts), 
+            dtype=np.float64
+        ) #Note: the first index specifies the action, the second index specifies the percept.
+        
+        self.h0_matrix = np.ones(
+            (self.num_actions, self.num_percepts), 
+            dtype=np.float64
+        ) #Note: the first index specifies the action, the second index specifies the percept.
+        
+        self.g_matrix = np.zeros(
+            (self.num_actions, self.num_percepts), 
+            dtype=np.float64
+        ) #glow matrix, for processing delayed rewards
 
         if num_reflections > 0:
             self.last_percept_action = None  #stores the last realized percept-action pair for use with reflection. If reflection is deactivated, all necessary information is encoded in g_matrix.
-            self.e_matrix = np.ones((self.num_actions, self.num_percepts), dtype=np.bool_) # emoticons
+            self.e_matrix = np.ones(
+                (self.num_actions, self.num_percepts), 
+                dtype=np.bool_
+            ) # emoticons
 
     def load_matrix(self, path):
         self.h_matrix = np.loadtxt(f'{path}/h_matrix.txt')
@@ -42,7 +61,7 @@ class PsAgent(object):
         for which_feature in range(len(observation)):
             percept += int(observation[which_feature] * np.prod(self.num_percepts_list[:which_feature]))
         return percept
-        
+
     def learn(self, reward):
         #self.h_matrix =  self.h_matrix - self.gamma_damping * (self.h_matrix - 1.) + self.g_matrix * reward # learning and forgetting
         self.h_matrix =  self.h_matrix*(1. - self.gamma_damping) + self.gamma_damping * self.h0_matrix + self.g_matrix * reward # learning and forgetting
@@ -68,19 +87,22 @@ class PsAgent(object):
         
         return action
         
-    def probability_distr(self, percept):        
+    def probability_distr(self, percept):
+
         if self.policy_type == 'standard':
             h_vector = self.h_matrix[:, percept]
             probability_distr = h_vector / np.sum(h_vector)
+
         elif self.policy_type == 'softmax':
             h_vector = self.beta_softmax * self.h_matrix[:, percept]
             h_vector_mod = h_vector - np.max(h_vector)
             probability_distr = np.exp(h_vector_mod) / np.sum(np.exp(h_vector_mod))
+
         return probability_distr
     
     def reset_glow_matrix(self):
         self.g_matrix = np.zeros((self.num_actions, self.num_percepts), dtype=np.float64) #glow matrix, for processing delayed rewards
-    
+
     def save(self, path):
         if not os.path.exists(path):
             os.makedirs(path)

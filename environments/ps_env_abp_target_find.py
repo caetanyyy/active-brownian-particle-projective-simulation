@@ -42,7 +42,15 @@ class PsEnvironment(object):
         dr_dt (float): Sum of the movements.
     """
 
-    def __init__ (self, L:float, Pe:float, l:float, tao:int, dt:float, allow_colision:bool = False):
+    def __init__ (
+            self, 
+            L:float = 100, 
+            Pe:float = 100, 
+            l:float = 1, 
+            tao:float = 1e+4, 
+            dt:float = 1, 
+            colision_reward:float = 0.05,
+            allow_colision:bool = False):
         """
         Initializes the Environment object.
 
@@ -50,9 +58,10 @@ class PsEnvironment(object):
             L (float): Dimension of the space.
             Pe (float): Péclet number.
             l (float): Length scale.
-            tao (int): Maximum steps per trial.
+            tao (float): Maximum steps per trial, greater than 1.
             dt (float): Time step size.
-            allow_colision (bool): Allow colision (true) or not (false)
+            colision_reward (float): Reward given to the model after the colision learning.
+            allow_colision (bool): Allow colision (true) or not (false).
 
         """
         # Gerador aleatório da classe:
@@ -71,9 +80,7 @@ class PsEnvironment(object):
 
         if allow_colision:
             self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state] # Tamanho dos observaveis
-            #self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state, self.max_steps_per_trial] # Tamanho dos observaveis (com timer de colisao)
-
-        
+            #self.num_percepts_list = [self.num_states, self.max_steps_per_trial, self.colision_state, self.max_steps_per_trial] # Tamanho dos observaveis (com timer de colisao) 
         else:
             self.num_percepts_list = [self.num_states, self.max_steps_per_trial] # Tamanho dos observaveis
         
@@ -89,7 +96,7 @@ class PsEnvironment(object):
 
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
-        self.trial_finished = False # Inicia o episódio
+        self.trial_finished = colision_reward # Inicia o episódio
         self.colision_reward = 0.005 # Recompensa por sair do estado ativo em uma colisão
 
         # Espaço
@@ -180,7 +187,8 @@ class PsEnvironment(object):
         self.theta_t = self.theta_t + np.sqrt(2*self.D_theta*self.dt)*self.n_t #Atualiza magnetude da orentação aleatória do ABP
         self.u_t = np.array([
             np.cos(self.theta_t), 
-            np.sin(self.theta_t)]) #projeta a orientação para eixo x e y
+            np.sin(self.theta_t)
+        ]) #projeta a orientação para eixo x e y
         self.dr_theta = self.v*self.u_t*self.state*self.dt # Calcula componente de movimento ABP
 
     def update_agent_position(self):
@@ -232,7 +240,7 @@ class PsEnvironment(object):
 
         Changes the agent's state and resets the timer.
         """
-        self.prev_state = self.state
+        self.prev_state = self.state # Salva estado antes da troca
         self.state = 1 - self.state # Troca de estado
         self.timer = 0 # Reseta o timer
 
@@ -260,7 +268,6 @@ class PsEnvironment(object):
         ## Criar uma recompensa para quando o target sai da colisão
         if self.allow_colision:
             if (self.prev_colision) & (self.prev_state) & (not self.state):
-            #if (self.prev_colision) & (not self.state):
                 self.reward = self.reward + self.colision_reward
 
         # se encontrou o target (apenas no estado BP), ganha a recompensa e reseta a posição do target

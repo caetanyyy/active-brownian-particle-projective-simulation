@@ -35,7 +35,6 @@ Pe := (v*tao)/L
 
 Padrão é p = 100
 
-
 ### l: Persistência do movimento direto
 l* := v/(D_theta*L)
 

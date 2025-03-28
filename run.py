@@ -180,28 +180,28 @@ def read_args():
 
     parser.add_argument(
         "--colision",
-        help="Define condições decontorno periódicas (False) ou fechadas (True).", 
+        help = "Define condições decontorno periódicas (False) ou fechadas (True).", 
         type = int,
         choices = [0, 1]
     )
 
     parser.add_argument(
+        "--colision_reward",
+        help = "Recompensa para o aprendizado da colisão", 
+        type = float_range(0,1),
+        default = 0.005
+    )
+
+    parser.add_argument(
         "--save_path",
-        help="Caminho para salvar modelos", 
+        help = "Caminho para salvar modelos", 
         type = str,
         default=''
     )
 
     parser.add_argument(
         "--load_path",
-        help="Caminho para carregar modelo", 
-        type = str,
-        default=''
-    )
-
-    parser.add_argument(
-        "--load_path_list",
-        help="Lista de modelos para carregar", 
+        help = "Lista de modelos para carregar", 
         type = str,
         default = ''
     )
@@ -225,23 +225,23 @@ def damping_params(args):
         5:{
             'gamma_damping' : 1e-7,
             'eta_damping' : 1e-2
-            },
+        },
         10:{
             'gamma_damping' : 1e-6,
             'eta_damping' : 1e-3
-            },
+        },
         20:{
             'gamma_damping' : 1e-6,
             'eta_damping' : 1e-3
-            },
+        },
         50:{
             'gamma_damping' : 1e-6,
             'eta_damping' : 1e-2
-            },
+        },
         100:{
             'gamma_damping' : 1e-5,
             'eta_damping' : 1e-2
-            }
+        }
     }
 
     idx = np.argmin([abs(args.peclet_number - pe) for pe in damping_param.keys()])
@@ -383,14 +383,14 @@ if __name__ == "__main__":
         if not os.path.exists(args.save_path):
             os.makedirs(args.save_path, exist_ok = True)
 
-    if len(args.load_path_list) > 0:
-        args.load_path_list = args.load_path_list.split(",")
+    if len(args.load_path) > 0:
+        args.load_path = args.load_path.split(",")
 
     # Se for realizada a paralelização:
     # Se tiver mais de um arquivo para carregar
     if (n_jobs != 1):
-        if len(args.load_path_list) > 0:
-            n_sim = len(args.load_path_list)
+        if len(args.load_path) > 0:
+            n_sim = len(args.load_path)
             with tqdm_joblib(
                 tqdm(
                     desc = "Simulações finalizadas:", 
@@ -401,7 +401,7 @@ if __name__ == "__main__":
                 Parallel(
                     n_jobs = n_jobs,
                     backend = "multiprocessing"
-                )(delayed(main)(args, sim, args.load_path_list[sim]) for sim in range(n_sim))
+                )(delayed(main)(args, sim, args.load_path[sim]) for sim in range(n_sim))
 
         elif (n_sim > 1):
             with tqdm_joblib(
@@ -418,9 +418,9 @@ if __name__ == "__main__":
     
     # Se for execução sequencial:
     else:
-        if len(args.load_path_list) > 0:
-            for sim in tqdm(range(len(args.load_path_list)), position = 0):
-                main(args, sim, args.load_path_list[sim])
+        if len(args.load_path) > 0:
+            for sim in tqdm(range(len(args.load_path)), position = 0):
+                main(args, sim, args.load_path[sim])
         else:
             for sim in tqdm(range(args.n_sim), position = 0):
                 main(args, 0)
