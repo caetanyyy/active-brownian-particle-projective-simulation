@@ -197,9 +197,9 @@ $$
 2. **Troca de Estado:**
    - Se o agente decide trocar de estado ($a=1$):
 
-$$
-\text{state} \leftarrow 1 - \text{state}
-$$
+        $$
+        \text{state} \leftarrow 1 - \text{state}
+        $$
 
      O timer é resetado e, se for para o estado ativo, a orientação é sorteada aleatoriamente.
 
@@ -207,22 +207,22 @@ $$
    - Se no estado ativo (ABP):
      - Atualiza orientação:
 
-$$
-\theta_t \leftarrow \theta_t + \sqrt{2 D_\theta \Delta t} \cdot \xi_t
-$$
+        $$
+        \theta_t \leftarrow \theta_t + \sqrt{2 D_\theta \Delta t} \cdot \xi_t
+        $$
 
        onde $\xi_t \sim \mathcal{N}(0,1)$
      - Vetor de orientação:
 
-$$
-\vec{u}_t = (\cos\theta_t, \sin\theta_t)
-$$
+        $$
+        \vec{u}_t = (\cos\theta_t, \sin\theta_t)
+        $$
 
      - Deslocamento ativo:
 
-$$
-\vec{dr}_\theta = v \cdot \vec{u}_t \cdot \Delta t
-$$
+        $$
+        \vec{dr}_\theta = v \cdot \vec{u}_t \cdot \Delta t
+        $$
 
    - Movimento browniano (sempre):
 
@@ -265,7 +265,7 @@ d = \|\vec{r} - \vec{r}_\text{alvo}\|
 $$
 
    - Sem colisão (periódico):
-   
+
 $$
 d = \|\min(|\vec{r} - \vec{r}_\text{alvo}|, L - |\vec{r} - \vec{r}_\text{alvo}|)\|
 $$
