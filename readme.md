@@ -196,9 +196,11 @@ $$
 
 2. **Troca de Estado:**
 - Se o agente decide trocar de estado ($a=1$):
+
 $$
 \text{state} \leftarrow 1 - \text{state}
 $$
+
 O timer é resetado e, se for para o estado ativo, a orientação é sorteada aleatoriamente.
 
 3. **Movimento do Agente:**
