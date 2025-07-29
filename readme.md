@@ -266,11 +266,10 @@ d = \|\vec{r} - \vec{r}_\text{alvo}\|
 $$
  
 - Sem colisão (periódico):
- 
+
 $$
-d = \|\min(|\vec{r} - \vec{r}_\text{alvo}|, L - |\vec{r} - \vec{r}_\text{alvo}|)\|
+d = \min( \|\vec{r} - \vec{r_\text{alvo}}\|, L - \|\vec{r} - \vec{r_\text{alvo}}\| )
 $$
- 
 
 5. **Recompensa:**
 - Se o agente encontra o alvo ($d < r_\text{alvo}$ e estado passivo): recompensa $+1$ e episódio termina.
