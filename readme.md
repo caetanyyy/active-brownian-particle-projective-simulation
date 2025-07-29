@@ -204,30 +204,41 @@ O timer é resetado e, se for para o estado ativo, a orientação é sorteada al
 3. **Movimento do Agente:**
 - Se no estado ativo (ABP):
   - Atualiza orientação:
+
 $$
 \theta_t \leftarrow \theta_t + \sqrt{2 D_\theta \Delta t} \cdot \xi_t
 $$
+
 onde $\xi_t \sim \mathcal{N}(0,1)$
   - Vetor de orientação:
+
 $$
 \vec{u}_t = (\cos\theta_t, \sin\theta_t)
 $$
+
   - Deslocamento ativo:
+
 $$
 \vec{dr}_\theta = v \cdot \vec{u}_t \cdot \Delta t
 $$
+
 - Movimento browniano (sempre):
+ 
 $$
 \vec{dr} = \sqrt{2 D \Delta t} \cdot \vec{\eta}_t
 $$
+ 
 onde $\vec{\eta}_t$ é vetor de ruído normal.
 - Posição final:
+ 
 $$
 \vec{r} \leftarrow \vec{r} + \vec{dr}_\theta + \vec{dr}
 $$
+ 
 
 - **Caso com colisão ativa:**
   - Para cada coordenada $x$:
+ 
 $$
 x \leftarrow \begin{cases}
     -x, & x < 0 \\
@@ -235,22 +246,29 @@ x \leftarrow \begin{cases}
     x, & \text{caso contrário}
 \end{cases}
 $$
+ 
   - Se houve reflexão, define $\text{colision} = 1$.
 
 - **Caso sem colisão (condições periódicas):**
+ 
 $$
 \vec{r} \leftarrow \vec{r} \bmod L
 $$
+ 
 
 4. **Cálculo da Distância ao Alvo:**
 - Com colisão:
+ 
 $$
 d = \|\vec{r} - \vec{r}_\text{alvo}\|
 $$
+ 
 - Sem colisão (periódico):
+ 
 $$
 d = \|\min(|\vec{r} - \vec{r}_\text{alvo}|, L - |\vec{r} - \vec{r}_\text{alvo}|)\|
 $$
+ 
 
 5. **Recompensa:**
 - Se o agente encontra o alvo ($d < r_\text{alvo}$ e estado passivo): recompensa $+1$ e episódio termina.
