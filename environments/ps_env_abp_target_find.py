@@ -5,6 +5,31 @@ import time
 
 class PsEnvironment(object):
     """
+    Ambiente de simulação para partículas Brownianas ativas (ABP) com busca de alvo.
+
+    Parâmetros:
+    - L: Tamanho da caixa 2D.
+    - Pe: Número de Péclet.
+    - l: Escala de persistência do movimento.
+    - tao: Número máximo de passos por rodada.
+    - dt: Intervalo de tempo da simulação.
+    - colision_reward: Recompensa por aprendizado de colisão.
+    - allow_colision: Permite colisão com as paredes (True/False).
+
+    Métodos principais:
+    - state_observation(): Retorna o estado observável do ambiente para o agente.
+    - update_environment(action): Atualiza o ambiente conforme a ação do agente.
+    - reset_target(): Reseta a posição do alvo.
+    - reset_agent_state(new_state): Reseta o estado do agente.
+    - save(path)/load(path): Salva ou carrega o ambiente em formato binário.
+
+    Principais atributos:
+    - state: Estado atual do agente (ativo/passivo).
+    - colision: Indica colisão com a parede.
+    - reward: Recompensa atual do agente.
+    - target_position: Posição do alvo.
+    """
+    """
     Represents an environment for an active brownian particle target finding simulation.
 
     Attributes:
@@ -42,27 +67,27 @@ class PsEnvironment(object):
         dr_dt (float): Sum of the movements.
     """
 
-    def __init__ (
-            self, 
-            L:float = 100, 
-            Pe:float = 100, 
-            l:float = 1, 
-            tao:float = 1e+4, 
-            dt:float = 1, 
-            colision_reward:float = 0.05,
-            allow_colision:bool = False):
+    def __init__(
+        self,
+        L: float = 100,
+        Pe: float = 100,
+        l: float = 1,
+        tao: float = 1e+4,
+        dt: float = 1,
+        colision_reward: float = 0.05,
+        allow_colision: bool = False
+    ):
         """
-        Initializes the Environment object.
+        Inicializa o objeto do ambiente ABP.
 
-        Args:
-            L (float): Dimension of the space.
-            Pe (float): Péclet number.
-            l (float): Length scale.
-            tao (float): Maximum steps per trial, greater than 1.
-            dt (float): Time step size.
-            colision_reward (float): Reward given to the model after the colision learning.
-            allow_colision (bool): Allow colision (true) or not (false).
-
+        Parâmetros:
+        - L (float): Tamanho da caixa 2D.
+        - Pe (float): Número de Péclet.
+        - l (float): Escala de persistência do movimento.
+        - tao (float): Número máximo de passos por rodada (>1).
+        - dt (float): Intervalo de tempo da simulação.
+        - colision_reward (float): Recompensa por aprendizado de colisão.
+        - allow_colision (bool): Permite colisão com as paredes (True/False).
         """
         # Gerador aleatório da classe:
         self.rng = np.random.RandomState(None)
@@ -132,33 +157,31 @@ class PsEnvironment(object):
         # Soma dos movimentos:
         self.dr_dt = self.dr + self.dr_theta
 
-    def reset_rng(self, seed = None):
+    def reset_rng(self, seed=None):
         """
-        Resets the random number generator.
+        Reseta o gerador de números aleatórios do ambiente.
 
-        Args:
-            seed (int): Seed for the random number generator. If None, a random seed is used.
+        Parâmetros:
+        - seed (int): Semente para o gerador. Se None, usa semente aleatória.
         """
-        # Gerador aleatório da classe:
         self.rng = np.random.RandomState(seed)
 
     def reset_target(self):
         """
-        Resets the target position.
-
-        Always called when a trial finishes, whether the agent found the target or not.
+        Reseta a posição do alvo.
+        Sempre chamada ao final de uma rodada, independente do agente encontrar o alvo.
         """
         self.target_position = np.array([
-            self.rng.rand()*self.L, 
-            self.rng.rand()*self.L
+            self.rng.rand() * self.L,
+            self.rng.rand() * self.L
         ])
 
     def reset_agent_state(self, new_state):
         """
-        Resets the agent state to a specific state.
+        Reseta o estado do agente para um estado específico.
 
-        Args:
-            new_state (int): New state for the agent (0 or 1).
+        Parâmetros:
+        - new_state (int): Novo estado do agente (0 ou 1).
         """
         self.timer = 0
         if new_state == 1:
@@ -167,185 +190,167 @@ class PsEnvironment(object):
 
     def reset_agent_ABP(self):
         """
-        Resets the agent state to ABP.
-
-        Called when the agent changes from passive to ABP state.
+        Reseta o agente para o estado ABP (ativo).
+        Chamado quando o agente muda do estado passivo para ativo.
         """
-        self.theta_t = 2*np.pi*self.rng.rand() #Inicia a magnetude da orientação aleatória do ABP
+        self.theta_t = 2 * np.pi * self.rng.rand()  # Orientação inicial aleatória
         self.u_t = np.array([
-            np.cos(self.theta_t), 
-            np.sin(self.theta_t)]) # Projeta a magnetude nos eixos X e Y
-        self.dr_theta = self.v*self.u_t*self.state*self.dt # Calcula componente e movimento ABP
+            np.cos(self.theta_t),
+            np.sin(self.theta_t)
+        ])  # Projeta orientação nos eixos X e Y
+        self.dr_theta = self.v * self.u_t * self.state * self.dt  # Componente de movimento ABP
 
     def update_agent_ABP(self):
         """
-        Updates the ABP state parameters.
-
-        Called when the agent remains in the ABP state.
+        Atualiza os parâmetros do estado ABP.
+        Chamado quando o agente permanece no estado ativo.
         """
-        self.n_t = self.rng.normal() #Calcula ruído do movimento ABP
-        self.theta_t = self.theta_t + np.sqrt(2*self.D_theta*self.dt)*self.n_t #Atualiza magnetude da orentação aleatória do ABP
+        self.n_t = self.rng.normal()  # Ruído do movimento ABP
+        self.theta_t = self.theta_t + np.sqrt(2 * self.D_theta * self.dt) * self.n_t  # Atualiza orientação
         self.u_t = np.array([
-            np.cos(self.theta_t), 
+            np.cos(self.theta_t),
             np.sin(self.theta_t)
-        ]) #projeta a orientação para eixo x e y
-        self.dr_theta = self.v*self.u_t*self.state*self.dt # Calcula componente de movimento ABP
+        ])  # Projeta orientação para eixo x e y
+        self.dr_theta = self.v * self.u_t * self.state * self.dt  # Componente de movimento ABP
 
     def update_agent_position(self):
         """
-        Updates the agent's position.
-
-        Calculates the final position of the agent based on its current state and movement parameters.
+        Atualiza a posição do agente.
+        Calcula a posição final do agente com base no estado atual e nos parâmetros de movimento.
         """
         self.E_t = np.array([
-            self.rng.normal(), 
+            self.rng.normal(),
             self.rng.normal()
-        ]) # Calcula o ruído do movimento BP
-        self.dr = np.sqrt(2*self.D*self.dt)*self.E_t # Calcula a componente de movimento BP
+        ])  # Ruído do movimento BP
+        self.dr = np.sqrt(2 * self.D * self.dt) * self.E_t  # Componente de movimento BP
         self.dr_dt = self.dr_theta + self.dr
         self.r = (self.r + self.dr_dt)
 
-        if self.allow_colision: # Se pode haver colisão
+        if self.allow_colision:
             self.colision = 0
-            self.r[0] = self.wall_reflection(self.r[0]) # Detecta colisão no eixo X
-            self.r[1] = self.wall_reflection(self.r[1]) # Detecta colisão no eixo Y 
-            
-        else: # Se o agente não colide na parede, as condições são periódicas
-            self.r = self.r%self.L # Atualiza posição do agente de acordo com as condições periódicas
+            self.r[0] = self.wall_reflection(self.r[0])  # Detecta colisão no eixo X
+            self.r[1] = self.wall_reflection(self.r[1])  # Detecta colisão no eixo Y
+        else:
+            self.r = self.r % self.L  # Condições periódicas
 
-        # Calcula a distância entre o agente e o alvo
-        self.target_distance()
+        self.target_distance()  # Calcula distância ao alvo
 
 
     def wall_reflection(self, x):
+        """
+        Reflete a posição do agente na parede, se necessário.
+        Atualiza o estado de colisão.
+        """
         if x < 0:
             x = -x
             self.colision = 1
-
         elif x > self.L:
-            x = 2*self.L - x
+            x = 2 * self.L - x
             self.colision = 1
         return x
     
     def target_distance(self):
+        """
+        Calcula a distância entre o agente e o alvo.
+        Considera condições de contorno periódicas se não houver colisão.
+        """
         diff = np.abs(self.r - self.target_position)
-        if not self.allow_colision: #Condições de contorno periódicas
+        if not self.allow_colision:
             diff = np.minimum(diff, self.L - diff)
-
         self.distance = np.linalg.norm(diff)
 
     def action(self):
         """
-        Performs an action of changing the agent's state.
-
-        Changes the agent's state and resets the timer.
+        Realiza a ação de troca de estado do agente.
+        Troca o estado e reseta o timer.
         """
-        self.prev_state = self.state # Salva estado antes da troca
-        self.state = 1 - self.state # Troca de estado
-        self.timer = 0 # Reseta o timer
+        self.prev_state = self.state
+        self.state = 1 - self.state
+        self.timer = 0
 
     def state_observation(self):
         """
-        Returns the current state of the system.
+        Retorna o estado observável do sistema para o agente.
 
-        Returns:
-            list: Current state of the system (observable).
+        Retorno:
+        - list: Estado atual do sistema (observável).
         """
         if self.allow_colision:
             return [self.state, self.timer, self.colision]
-        
         return [self.state, self.timer]
 
     def update_reward(self):
         """
-        Updates the agent's reward.
-
-        Checks if the agent has found the target and updates the reward accordingly.
+        Atualiza a recompensa do agente.
+        Verifica se o agente encontrou o alvo e atualiza a recompensa.
         """
-        self.trial_finished = False 
+        self.trial_finished = False
         self.reward = 0
-        
-        ## Criar uma recompensa para quando o target sai da colisão
+        # Recompensa por sair do estado ativo em colisão
         if self.allow_colision:
             if (self.prev_colision) & (self.prev_state) & (not self.state):
                 self.reward = self.reward + self.colision_reward
-
-        # se encontrou o target (apenas no estado BP), ganha a recompensa e reseta a posição do target
-        if (self.distance < self.target_radius) & (not self.state): 
+        # Recompensa por encontrar o alvo (apenas no estado BP)
+        if (self.distance < self.target_radius) & (not self.state):
             self.reward = self.reward + 1
             self.trial_finished = True
 
-    def update_environment(self, action): 
+    def update_environment(self, action):
         """
-        Updates the environment based on the agent's action.
+        Atualiza o ambiente conforme a ação do agente.
 
-        Performs the necessary updates to the environment based on the agent's action.
+        Parâmetros:
+        - action (bool): Indica se o agente deve trocar de estado.
 
-        Args:
-            action (bool): Flag indicating if the agent should change its state.
-
-        Returns:
-            tuple: A tuple containing the reward and a flag indicating if the trial has finished.
+        Retorno:
+        - tuple: (recompensa, flag de término da rodada)
         """
-
-        self.timer += 1 #atualiza timer do estado
-        self.dr_theta = 0 #Não há movimento ABP
+        self.timer += 1  # Atualiza timer do estado
+        self.dr_theta = 0  # Não há movimento ABP
         self.prev_colision = self.colision
 
-        #Se houver ação de troca de estado
-        if action: 
-            self.action() # Troca o estado e reseta o timer
-            if self.state == 1: # Se trocou para o estado ABP
-                self.reset_agent_ABP() # Inicia variáveis aleatórias do estado
-                
+        # Se houver ação de troca de estado
+        if action:
+            self.action()  # Troca o estado e reseta o timer
+            if self.state == 1:
+                self.reset_agent_ABP()  # Inicia variáveis aleatórias do estado
         # Se não houver ação mas o estado for ABP
-        elif self.state == 1: # se está em ABP
-            self.update_agent_ABP() # Atualiza parâmetros do movimento ABP                
-        
-        # Calcula a posição final do agente
-        self.update_agent_position()
+        elif self.state == 1:
+            self.update_agent_ABP()  # Atualiza parâmetros do movimento ABP
 
-        # Calcula a recompensa
-        self.update_reward()
-        
-        # Se alcançou o limite de tempo em um estado e o episódio de treino não foi finalizado, troca de estado
-        if (self.timer == self.max_steps_per_trial - 1) & (not self.trial_finished):
+        self.update_agent_position()  # Calcula posição final do agente
+        self.update_reward()  # Calcula recompensa
+
+        # Se atingiu limite de tempo e não finalizou, troca de estado
+        if (self.timer == self.max_steps_per_trial - 1) and (not self.trial_finished):
             self.action()
-            if self.state == 1: # Se o no estado é o estado ABP
+            if self.state == 1:
                 self.reset_agent_ABP()
-        
-        #if (self.colision) & (self.allow_colision): Se está em colisão, atualiza o timer
-        #    self.timer_colision += 1
-        
-        #if (self.prev_colision) & (not self.colision) & (self.allow_colision): # Se a há mudança no estado de colisão, reseta o timer
-        # Adicionar um timer apenas para a colisão
-        #    self.timer_colision = 0
-        
+
         return self.reward, self.trial_finished
     
     def save(self, path):
         """
-        Saves the environment object to a file.
+        Salva o objeto do ambiente em arquivo binário.
 
-        Args:
-            path (str): Path to the directory where the environment object will be saved.
+        Parâmetros:
+        - path (str): Caminho para salvar o ambiente.
         """
         if not os.path.exists(path):
             os.makedirs(path)
-
         with open(path + '/environment', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def load(path):
         """
-        Loads the environment object from a file.
+        Carrega o objeto do ambiente de um arquivo binário.
 
-        Args:
-            path (str): Path to the directory where the environment object is saved.
+        Parâmetros:
+        - path (str): Caminho do arquivo salvo.
 
-        Returns:
-            Environment: The loaded environment object.
+        Retorno:
+        - Ambiente carregado.
         """
         if not os.path.exists(path):
             raise Exception("Diretório inexistente")

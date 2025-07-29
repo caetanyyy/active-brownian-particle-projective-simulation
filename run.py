@@ -1,3 +1,45 @@
+"""
+Projeto: active-brownian-particle-projective-simulation
+
+Este script executa a simulação de busca de alvo por partículas Brownianas com estados ativos e passivos, utilizando aprendizado por reforço via Simulação Projetiva.
+
+Principais Classes:
+
+1. PsAgent (agents/ps_agent.py):
+   - Implementa o agente de Simulação Projetiva (PS).
+   - Principais métodos:
+     * deliberate(observation): Decide a ação do agente com base na observação.
+     * learn(reward): Atualiza os pesos do agente conforme a recompensa.
+     * probability_distr(percept): Calcula a distribuição de probabilidade das ações.
+     * reset_glow_matrix(): Reseta a matriz de glow.
+     * save(path)/load(path): Salva/carrega o agente.
+
+2. PsEnvironment (environments/ps_env_abp_target_find.py):
+   - Simula o ambiente 2D para o agente ABP encontrar o alvo.
+   - Principais métodos:
+     * state_observation(): Retorna o estado observável do ambiente.
+     * update_environment(action): Atualiza o ambiente conforme a ação do agente.
+     * reset_target()/reset_agent_state(): Reseta o alvo ou o estado do agente.
+     * save(path)/load(path): Salva/carrega o ambiente.
+
+3. ProjectiveSimulation (simulations/projective_simulation_iteration.py):
+   - Gerencia o ciclo de aprendizado do agente no ambiente.
+   - Principais métodos:
+     * run_learning_step(): Executa um passo de aprendizado.
+     * run_episode(max_steps_per_episode): Executa um episódio completo.
+     * fit(num_episodes, max_steps_per_episode): Executa múltiplos episódios.
+     * save(path)/load(path): Salva/carrega agente e ambiente.
+
+4. run.py (este arquivo):
+   - Gerencia a leitura de argumentos, criação dos modelos, execução das simulações (paralelas ou sequenciais), e salvamento dos resultados.
+   - Principais funções:
+     * read_args(): Lê e processa os argumentos da linha de comando.
+     * create_models(args): Instancia agente e ambiente.
+     * main(args, sim, load_path): Executa uma simulação.
+     * save_data(...): Salva resultados e modelos.
+
+Para detalhes de parâmetros e outputs, consulte o README.
+"""
 import sys
 import numpy as np
 import argparse
@@ -21,7 +63,9 @@ ps_model = ProjectiveSimulation
 
 @contextlib.contextmanager
 def tqdm_joblib(tqdm_object):
-    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
+    """
+    Context manager para integrar o progresso do joblib ao tqdm.
+    """
     class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
         def __call__(self, *args, **kwargs):
             tqdm_object.update(n=self.batch_size)
@@ -35,50 +79,44 @@ def tqdm_joblib(tqdm_object):
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
 
-def float_range(mini,maxi):
-    """Return function handle of an argument type function for 
-       ArgumentParser checking a float range: mini <= arg <= maxi
-         mini - minimum acceptable argument
-         maxi - maximum acceptable argument"""
-
-    # Define the function with default arguments
+def float_range(mini, maxi):
+    """
+    Retorna uma função para validar argumentos float em um intervalo: mini <= arg <= maxi.
+    """
     def float_range_checker(arg):
-        """New Type function for argparse - a float within predefined range."""
-
+        """
+        Função de validação para argparse - float dentro do intervalo definido.
+        """
         try:
             f = float(arg)
-        except ValueError:    
-            raise argparse.ArgumentTypeError("must be a floating point number")
+        except ValueError:
+            raise argparse.ArgumentTypeError("deve ser um número real")
         if f < mini or f > maxi:
-            raise argparse.ArgumentTypeError("must be in range [" + str(mini) + " .. " + str(maxi)+"]")
+            raise argparse.ArgumentTypeError(f"deve estar no intervalo [{mini} .. {maxi}]")
         return f
-
-    # Return function handle to checking function
     return float_range_checker
 
 def float_min_range(mini):
-    """Return function handle of an argument type function for 
-       ArgumentParser checking a float range: mini <= arg
-         mini - minimum acceptable argument
-         """
-
-    # Define the function with default arguments
+    """
+    Retorna uma função para validar argumentos float: mini <= arg.
+    """
     def float_range_checker(arg):
-        """New Type function for argparse - a float within predefined range."""
-
+        """
+        Função de validação para argparse - float acima de um mínimo.
+        """
         try:
             f = float(arg)
-        except ValueError:    
-            raise argparse.ArgumentTypeError("must be a floating point number")
+        except ValueError:
+            raise argparse.ArgumentTypeError("deve ser um número real")
         if f < mini:
-            raise argparse.ArgumentTypeError("must be in range [" + str(mini) + " ... inf]")
+            raise argparse.ArgumentTypeError(f"deve ser maior ou igual a {mini}")
         return f
-
-    # Return function handle to checking function
     return float_range_checker
 
 def read_args():
-    """Read command line arguments and return the parsed arguments"""
+    """
+    Lê os argumentos da linha de comando e retorna o objeto de argumentos.
+    """
     parser = argparse.ArgumentParser(
         prog='run_target_find_simulation',
         description='Realiza a simulação de busca de alvo por uma partícula Browniana de estados ativos e passivos através de aprendizado pro reforço com simulação projetiva',
@@ -218,7 +256,9 @@ def read_args():
     return args
 
 def damping_params(args):
-    """Set damping parameters based on the Péclet number"""
+    """
+    Define os parâmetros de damping de acordo com o número de Péclet.
+    """
   
     # Parâmetros de damping em função de Pe, de acordo com o artigo (seção de Métodos)
     damping_param = {
@@ -252,7 +292,9 @@ def damping_params(args):
     return args
 
 def create_models(args):
-    """Create the agent and environment models"""
+    """
+    Cria e retorna as instâncias do agente e do ambiente.
+    """
     # Inicia ambiente
     env = env_class(
         args.box_size, 
@@ -307,6 +349,9 @@ def create_models(args):
     return agent, env
 
 def save_data(model, args, learning_process, ep, filename_time, prev_episodes, load_path):
+    """
+    Salva os dados do modelo, argumentos e curva de aprendizado.
+    """
     if len(load_path) > 0:
         args['num_episodes'] = ep + prev_episodes
         model.save(load_path)
@@ -324,7 +369,9 @@ def save_data(model, args, learning_process, ep, filename_time, prev_episodes, l
         np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
 def main(args, sim, load_path = ''):
-    """Main function to run the simulation"""
+    """
+    Função principal para executar a simulação.
+    """
     # Gera os modelos
     filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now()) + f'__{sim}'
     num_episodes = args.num_episodes
