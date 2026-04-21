@@ -156,7 +156,7 @@ def read_args():
         help = "Tipo de cálculo da matriz de probabilidade: standard ou softmax", 
         type = str,
         default = 'standard',
-        choices=['stadard','softmax']
+        choices=['standard','softmax']
     )
 
     parser.add_argument(
@@ -244,6 +244,28 @@ def read_args():
         default = ''
     )
 
+    parser.add_argument(
+        "--agent_type",
+        help="Define o tipo de comportamento do agente: 'active_passive' ou 'passive_only'.",
+        type=str,
+        default='active_passive',
+        choices=['active_passive', 'passive_only']
+    )
+    
+    parser.add_argument(
+        "--collision_type",
+        help="Define o tipo de interação com a parede: 'specular', 'diffusive' ou 'repulsive'. Apenas se --colision=1.",
+        type=str,
+        default='specular',
+        choices=['specular', 'diffusive', 'repulsive']
+    )
+
+    parser.add_argument(
+        "--save_trajectory",
+        help="Salva a trajetória (x, y, ângulo) do agente em um arquivo trajectory.txt.",
+        action='store_true'
+    )
+
     args = parser.parse_args()
 
     if args.damping_flag:
@@ -302,7 +324,9 @@ def create_models(args):
         args.persistence, 
         args.tao, 
         args.dt,
-        args.colision
+        args.colision,
+        allow_colision=bool(args.colision),
+        collision_type=args.collision_type
     )
     
     # Inicia agente
@@ -316,36 +340,54 @@ def create_models(args):
         args.num_reflections
     )
 
+    # --- LÓGICA DE INICIALIZAÇÃO CORRIGIDA (BASEADA NO SEU CÓDIGO ORIGINAL) ---
+
     if args.colision:
-        # Inicia matriz de probabilidade de acordo com o artigo
-        for step in range(env.max_steps_per_trial):
-            for colision in range(env.colision_state):
-                for state in range(env.num_states):
-                    percept = agent.percept_preprocess([state,step,colision])
-                    if state == 0:
+        # CASO COM COLISÃO
+        for timer_val in range(env.max_steps_per_trial):
+            for colision_val in range(env.colision_state):
+                if args.agent_type == 'passive_only':
+                    # Para o baseline, só nos importamos com state=0
+                    # A observação para o seu percept_preprocess é [state, timer, colision]
+                    observation = [0, timer_val, colision_val]
+                    percept = agent.percept_preprocess(observation)
+                    agent.h_matrix[0, percept] = 1.0
+                    agent.h_matrix[1, percept] = 0.0
+                
+                else: # 'active_passive'
+                    # Esta é a sua lógica original, preservada
+                    for state_val in range(env.num_states):
+                        observation = [state_val, timer_val, colision_val]
+                        percept = agent.percept_preprocess(observation)
+                        if state_val == 0:
+                            agent.h_matrix[1, percept] = 1e-2
+                            agent.h_matrix[0, percept] = 1 - 1e-2
+                        elif state_val == 1:
+                            agent.h_matrix[1, percept] = 1e-3
+                            agent.h_matrix[0, percept] = 1 - 1e-3
+    else:
+        # CASO SEM COLISÃO
+        for timer_val in range(env.max_steps_per_trial):
+
+            if args.agent_type == 'passive_only':
+                observation = [0, timer_val]
+                percept = agent.percept_preprocess(observation)
+                agent.h_matrix[0, percept] = 1.0
+                agent.h_matrix[1, percept] = 0.0
+
+            else: # 'active_passive'
+                for state_val in range(env.num_states):
+                    observation = [state_val, timer_val]
+                    percept = agent.percept_preprocess(observation)
+                    if state_val == 0:
                         agent.h_matrix[1, percept] = 1e-2
                         agent.h_matrix[0, percept] = 1 - 1e-2
-
-                    elif state == 1:
+                    elif state_val == 1:
                         agent.h_matrix[1, percept] = 1e-3
                         agent.h_matrix[0, percept] = 1 - 1e-3
 
-    else:
-        # Inicia matriz de probabilidade de acordo com o artigo
-        for step in range(env.max_steps_per_trial):
-            for state in range(env.num_states):
-                percept = agent.percept_preprocess([state,step])
-                if state == 0:
-                    agent.h_matrix[1, percept] = 1e-2
-                    agent.h_matrix[0, percept] = 1 - 1e-2
-
-                elif state == 1:
-                    agent.h_matrix[1, percept] = 1e-3
-                    agent.h_matrix[0, percept] = 1 - 1e-3
-
     # Matriz h0 inicial é estática
-    agent.h0_matrix = agent.h_matrix
-
+    agent.h0_matrix = np.copy(agent.h_matrix)
     return agent, env
 
 def save_data(model, args, learning_process, ep, filename_time, prev_episodes, load_path):
@@ -361,65 +403,89 @@ def save_data(model, args, learning_process, ep, filename_time, prev_episodes, l
         np.savetxt(load_path + '/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
     else:
-        args.num_episodes = ep + prev_episodes
-        model.save(args.save_path + '/' + filename_time)
-        with open(args.save_path + '/' + filename_time +'/args.json', 'w') as fp:
-            json.dump(vars(args), fp)
-        np.savetxt(args.save_path + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
-        np.savetxt(args.save_path + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+        args['num_episodes'] = ep + prev_episodes
+        model.save(args['save_path'] + '/' + filename_time)
+        with open(args['save_path'] + '/' + filename_time +'/args.json', 'w') as fp:
+            json.dump(args, fp)
+        np.savetxt(args['save_path'] + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args['save_path'] + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
-def main(args, sim, load_path = ''):
+# Em run.py
+
+def main(args, sim, load_path=''):
     """
     Função principal para executar a simulação.
     """
-    # Gera os modelos
+    # Gera o nome do arquivo para novos modelos
     filename_time = '{date:%Y-%m-%d_%H-%M-%S.%f}'.format(date=datetime.datetime.now()) + f'__{sim}'
-    num_episodes = args.num_episodes
+    
+    # Define o número de episódios a serem executados nesta chamada
+    # CORREÇÃO: Acessa 'args' com ponto (objeto Namespace)
+    num_episodes_to_run = args.num_episodes
 
+    save_directory = ''
     if len(load_path) > 0:
         model = ps_model.load(load_path)
-        learning_process = np.loadtxt(
-            f'{load_path}/learning_process.txt'
-        )
-
+        
+        try:
+            learning_process = np.loadtxt(f'{load_path}/learning_process.txt')
+            if learning_process.ndim == 0: learning_process = np.array([learning_process])
+            prev_episodes = len(learning_process)
+        except (IOError, ValueError):
+            learning_process = np.array([])
+            prev_episodes = 0
+            
         with open(f'{load_path}/args.json', 'r') as file:
-            args = json.load(file)
-
-        prev_episodes = args['num_episodes']
-        args['load_path'] = load_path
-        save_path = load_path
-        max_steps_per_episode = args['max_steps_per_episode']
+            # Carrega os argumentos salvos como um dicionário
+            current_args_dict = json.load(file)
+        
+        save_directory = load_path
+        max_steps_per_episode = current_args_dict['max_steps_per_episode']
 
     else:
         agent, env = create_models(args)
-        # Gera a classe de simulação
         model = ps_model(agent, env)
         learning_process = np.array([])
         prev_episodes = 0
+        # CORREÇÃO: Converte o objeto 'args' em um dicionário para uso consistente
+        current_args_dict = vars(args)
         max_steps_per_episode = args.max_steps_per_episode
-        save_path = args.save_path
+        if len(args.save_path) > 0:
+            save_directory = os.path.join(args.save_path, filename_time)
 
-    # Treina os modelos
-    #_ = model.fit(num_episodes, max_steps_per_episode)
-    
-    for ep in range(num_episodes):
-        step = model.run_episode(max_steps_per_episode)
-        _ = step / model.env.max_steps_per_trial
-        learning_process = np.append(learning_process, _)
-        if len(save_path) > 0:
-            save_data(model, args, learning_process, ep + 1, filename_time, prev_episodes, load_path)
+    # Configuração do arquivo de trajetória
+    trajectory_file = None
+    if len(save_directory) > 0 and args.save_trajectory:
+        trajectory_filepath = os.path.join(save_directory, 'trajectory.txt')
+        os.makedirs(save_directory, exist_ok=True)
+        trajectory_file = open(trajectory_filepath, 'ab')
 
-    if len(load_path) == 0:
+    # Laço de treinamento
+    for ep in range(num_episodes_to_run):
+        step, trajectory_data = model.run_episode(max_steps_per_episode, track_trajectory=args.save_trajectory)
+        
+        learning_process = np.append(learning_process, step / model.env.max_steps_per_trial)
+
+        if trajectory_file and trajectory_data:
+            header = f"Episode {prev_episodes + ep + 1}, Steps {len(trajectory_data)}"
+            np.savetxt(trajectory_file, np.array(trajectory_data), fmt='%.4f,%.4f,%.8f,%d', delimiter=',', header=header)
+
+        if len(save_directory) > 0:
+            # Passa o dicionário 'current_args_dict' para a função de salvamento
+            save_data(model, current_args_dict, learning_process, ep + 1, filename_time, prev_episodes, load_path)
+
+    if trajectory_file:
+        trajectory_file.close()
+
+    if len(load_path) == 0 and 'agent' in locals():
         del agent
         del env
-
     del model
     del learning_process
-    del filename_time
-
     gc.collect()
     
     return 0
+
 
 if __name__ == "__main__":
     args = read_args()

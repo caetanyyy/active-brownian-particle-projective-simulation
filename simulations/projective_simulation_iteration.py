@@ -51,7 +51,7 @@ class ProjectiveSimulation(object):
         self.agent.learn(reward)  # Aprendizado do agente
         return done
 
-    def run_episode(self, max_steps_per_episode, reset_env=True, reset_agent=True):
+    def run_episode(self, max_steps_per_episode, reset_env=True, reset_agent=True, track_trajectory=False):
         """
         Executa um episódio completo da simulação.
 
@@ -59,19 +59,39 @@ class ProjectiveSimulation(object):
         - max_steps_per_episode: Número máximo de passos por episódio.
         - reset_env: Se True, reseta o ambiente no início.
         - reset_agent: Se True, reseta o agente no início.
+        - track_trajectory: Se True, coleta a posição e o ângulo a cada passo.
 
         Retorno:
-        - Número de passos realizados no episódio.
+        - step (int): Número de passos realizados no episódio.
+        - trajectory_data (list): Lista com [x, y, ângulo] de cada passo, ou lista vazia.
         """
         if reset_env:
             self.reset_environment()
         if reset_agent:
             self.reset_agent()
+
+        # Prepara a lista para armazenar os dados da trajetória, se solicitado
+        trajectory_data = []
+
         for step in range(max_steps_per_episode):
+            # Se track_trajectory for True, armazena o estado ANTES do passo
+            if track_trajectory:
+                pos = self.env.r
+                angle = self.env.theta_t
+                state = self.env.state
+                trajectory_data.append([pos[0], pos[1], angle, state])
             done = self.run_learning_step()
+
             if done:
+                # Armazena o estado final após encontrar o alvo
+                if track_trajectory:
+                    pos = self.env.r
+                    angle = self.env.theta_t
+                    state = self.env.state 
+                    trajectory_data.append([pos[0], pos[1], angle, state])
                 break
-        return step
+        
+        return step, trajectory_data
 
     def fit(self, num_episodes, max_steps_per_episode):
         """
@@ -95,7 +115,7 @@ class ProjectiveSimulation(object):
         Reseta o ambiente para o estado inicial.
         """
         self.env.reset_target()
-        self.env.reset_agent_state(1)
+        self.env.reset_agent_state(0)
 
     def reset_agent(self):
         """
