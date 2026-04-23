@@ -28,8 +28,6 @@ class PsEnvironment(object):
     - colision: Indica colisão com a parede.
     - reward: Recompensa atual do agente.
     - target_position: Posição do alvo.
-    """
-    """
     Represents an environment for an active brownian particle target finding simulation.
 
     Attributes:
@@ -74,9 +72,10 @@ class PsEnvironment(object):
         l: float = 1,
         tao: float = 1e+4,
         dt: float = 1,
-        colision_reward: float = 0.05,
+        target_reward: float = 1,
+        colision_reward: float = 0.005,
         allow_colision: bool = False,
-        collision_type: str = 'specular'
+        collision_type: str = 'slide'
     ):
         """
         Inicializa o objeto do ambiente ABP.
@@ -87,6 +86,7 @@ class PsEnvironment(object):
         - l (float): Escala de persistência do movimento.
         - tao (float): Número máximo de passos por rodada (>1).
         - dt (float): Intervalo de tempo da simulação.
+        - target_reward (float): Recompensa por encontrar o alvo.
         - colision_reward (float): Recompensa por aprendizado de colisão.
         - allow_colision (bool): Permite colisão com as paredes (True/False).
         """
@@ -122,8 +122,9 @@ class PsEnvironment(object):
 
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
-        self.trial_finished = colision_reward # Inicia o episódio
-        self.colision_reward = 0.005 # Recompensa por sair do estado ativo em uma colisão
+        self.colision_reward = colision_reward # Recompensa por sair do estado ativo em uma colisão
+        self.target_reward = target_reward # Recompensa por encontrar o alvo
+        self.trial_finished = False # Inicia o episódio
 
         # Espaço
         self.L = L # Dimensão do espaço
@@ -219,104 +220,27 @@ class PsEnvironment(object):
             np.sin(self.theta_t)
         ])  # Projeta orientação para eixo x e y
         self.dr_theta = self.v * self.u_t * self.state * self.dt  # Componente de movimento ABP
-
-    def wall_reflection(self, x):
-        """
-        Reflete a posição do agente na parede, se necessário.
-        Atualiza o estado de colisão.
-        """
-        if x < 0:
-            x = -x
-            self.colision = 1
-        elif x > self.L:
-            x = 2 * self.L - x
-            self.colision = 1
-        return x
-    
-    def _handle_specular_collision(self):
-        """
-        Interação de colisão especular ("quicar").
-        A posição é refletida, simulando um quique elástico.
-        A orientação do movimento ativo não é afetada pela colisão.
-        """
-        self.colision = 0
-        # A função wall_reflection já implementa a lógica de espelho
-        self.r[0] = self.wall_reflection(self.r[0])
-        self.r[1] = self.wall_reflection(self.r[1])
-
-    def _handle_diffusive_collision(self):
-        """
-        Interação de colisão difusiva ("parar e reorientar").
-        A partícula para na parede e sua orientação de movimento ativo é 
-        sorteada aleatoriamente, simulando um "tumble" biológico.
-        """
+                
+    def _handle_sliding_collision(self):
+        """Implementa a interação de "parede deslizante" de forma otimizada."""
         self.colision = 0
         
-        # Armazena o estado de colisão após a verificação do primeiro eixo
-        # para que a reorientação aleatória ocorra apenas uma vez.
-        colision_after_x = 0
-        
-        # Eixo X
-        if self.r[0] < 0:
-            self.r[0] = 0
-            colision_after_x = 1
-        elif self.r[0] > self.L:
-            self.r[0] = self.L
-            colision_after_x = 1
+        # Posição proposta para o próximo passo
+        next_pos = self.r + self.dr_dt
 
-        # Eixo Y
-        colision_after_y = 0
-        if self.r[1] < 0:
-            self.r[1] = 0
-            colision_after_y = 1
-        elif self.r[1] > self.L:
-            self.r[1] = self.L
-            colision_after_y = 1
+        walls = [ (0, 0, 1), (self.L, 0, -1), (0, 1, 1), (self.L, 1, -1) ]
 
-        # A colisão final é se ocorreu em qualquer um dos eixos
-        self.colision = colision_after_x or colision_after_y
-        
-        # Se uma colisão de fato ocorreu, reorienta o agente
-        if self.colision:
-            self.theta_t = 2 * np.pi * self.rng.rand()
-            self.u_t = np.array([np.cos(self.theta_t), np.sin(self.theta_t)])
-            # Garante que o deslocamento ativo do PRÓXIMO passo já use a nova direção
-            if self.state == 1:
-                self.dr_theta = self.v * self.u_t * self.state * self.dt
+        for limit, axis, norm_dir in walls:
+            if (next_pos[axis] - limit) * norm_dir < 0:
+                self.colision = 1
+                normal_vector = np.zeros(2); normal_vector[axis] = norm_dir
                 
-    def _handle_repulsive_collision(self):
-        """
-        Interação de colisão repulsiva ("sentir e desviar").
-        Uma força de parede suave é adicionada ao movimento da partícula,
-        simulando interações hidrodinâmicas ou eletrostáticas.
-        """
-        dr_repulsive = np.zeros(2)
-        distances = [self.r[0], self.L - self.r[0], self.r[1], self.L - self.r[1]]
-        force_directions = [np.array([1, 0]), np.array([-1, 0]), np.array([0, 1]), np.array([0, -1])]
-
-        self.colision = 0
-        
-        for i in range(4):
-            d = distances[i]
-            if d < self.repulsive_cutoff:
-                if d < 1e-6: d = 1e-6
+                # Anula a componente normal apenas do deslocamento ATIVO (dr_theta)
+                dot_product = np.dot(self.dr_theta, normal_vector)
+                self.dr_dt -= dot_product * normal_vector
                 
-                ratio_inv = self.repulsive_sigma / d
-                magnitude = self.repulsive_k * (pow(ratio_inv, self.repulsive_power))
-                
-                displacement_vector =  magnitude * self.dt
-                if displacement_vector > self.repulsive_cutoff:
-                    displacement_vector =  force_directions[i]*self.repulsive_cutoff
-                else:
-                    displacement_vector =  force_directions[i]*displacement_vector
-                dr_repulsive += displacement_vector 
-
-                # Define o estado de "colisão" para o agente se a força for significativa
-                if magnitude > 1e-6:
-                    self.colision = 1
-        
-        # Adiciona o deslocamento repulsivo ao deslocamento total do passo
-        self.dr_dt += dr_repulsive    
+                # Reposiciona a partícula na parede para evitar "afundamento"
+                self.r[axis] = limit
     
     def target_distance(self):
         """
@@ -361,7 +285,7 @@ class PsEnvironment(object):
                 self.reward = self.reward + self.colision_reward
         # Recompensa por encontrar o alvo (apenas no estado BP)
         if (self.distance < self.target_radius) & (not self.state):
-            self.reward = self.reward + 1
+            self.reward = self.reward + self.target_reward
             self.trial_finished = True
 
     def update_environment(self, action):
@@ -405,35 +329,22 @@ class PsEnvironment(object):
         """
         # 1. Calcula o deslocamento base (Browniano + Ativo)
         self.E_t = np.array([self.rng.normal(), self.rng.normal()])
+        
         self.dr = np.sqrt(2 * self.D * self.dt) * self.E_t
+        
         self.dr_dt = self.dr_theta + self.dr
 
-        # 2. Lida com as fronteiras do ambiente
         if self.allow_colision:
-            # Roteador: chama a função de colisão correta
-            if self.collision_type == 'repulsive':
-                self._handle_repulsive_collision()
-            
-            # Adiciona o deslocamento base à posição
-            self.r = (self.r + self.dr_dt)
+            if self.collision_type == 'slide':
+                self._handle_sliding_collision()
+            self.r += self.dr_dt
 
-            if self.collision_type == 'specular':
-                self._handle_specular_collision()
-            elif self.collision_type == 'diffusive':
-                self._handle_diffusive_collision()
-                
-            # vvvv BLOCO DE SEGURANÇA ADICIONADO AQUI vvvv
-            # Garante que a partícula nunca escape, independentemente do tipo de colisão
-            self.r[0] = np.clip(self.r[0], 0, self.L)
-            self.r[1] = np.clip(self.r[1], 0, self.L)
-
-        else: # Caso sem colisão (condições de contorno periódicas)
+        # # Caso sem colisão (condições de contorno periódicas)
+        else:
             self.r = (self.r + self.dr_dt) % self.L
             
         # 3. Calcula a distância final ao alvo
         self.target_distance()
-
-
 
     def save(self, path):
         """

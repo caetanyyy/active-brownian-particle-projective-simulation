@@ -231,6 +231,13 @@ def read_args():
     )
 
     parser.add_argument(
+        "--target_reward",
+        help = "Recompensa por encontrar o alvo", 
+        type = float_range(0,1),
+        default = 1
+    )
+
+    parser.add_argument(
         "--save_path",
         help = "Caminho para salvar modelos", 
         type = str,
@@ -254,10 +261,10 @@ def read_args():
     
     parser.add_argument(
         "--collision_type",
-        help="Define o tipo de interação com a parede: 'specular', 'diffusive' ou 'repulsive'. Apenas se --colision=1.",
+        help="Define o tipo de interação com a parede: 'slide'. Apenas se --colision=1.",
         type=str,
-        default='specular',
-        choices=['specular', 'diffusive', 'repulsive']
+        default='slide',
+        choices=['slide']
     )
 
     parser.add_argument(
@@ -324,7 +331,8 @@ def create_models(args):
         args.persistence, 
         args.tao, 
         args.dt,
-        args.colision,
+        args.target_reward,
+        args.colision_reward,
         allow_colision=bool(args.colision),
         collision_type=args.collision_type
     )
@@ -342,20 +350,22 @@ def create_models(args):
 
     # --- LÓGICA DE INICIALIZAÇÃO CORRIGIDA (BASEADA NO SEU CÓDIGO ORIGINAL) ---
 
-    if args.colision:
+    if bool(args.colision):
         # CASO COM COLISÃO
         for timer_val in range(env.max_steps_per_trial):
             for colision_val in range(env.colision_state):
                 if args.agent_type == 'passive_only':
-                    # Para o baseline, só nos importamos com state=0
-                    # A observação para o seu percept_preprocess é [state, timer, colision]
-                    observation = [0, timer_val, colision_val]
-                    percept = agent.percept_preprocess(observation)
-                    agent.h_matrix[0, percept] = 1.0
-                    agent.h_matrix[1, percept] = 0.0
+                    for state_val in range(env.num_states):
+                        observation = [state_val, timer_val, colision_val]
+                        percept = agent.percept_preprocess(observation)
+                        if state_val == 0:
+                            agent.h_matrix[1, percept] = 0
+                            agent.h_matrix[0, percept] = 1
+                        elif state_val == 1:
+                            agent.h_matrix[1, percept] = 1
+                            agent.h_matrix[0, percept] = 0
                 
                 else: # 'active_passive'
-                    # Esta é a sua lógica original, preservada
                     for state_val in range(env.num_states):
                         observation = [state_val, timer_val, colision_val]
                         percept = agent.percept_preprocess(observation)
@@ -370,10 +380,15 @@ def create_models(args):
         for timer_val in range(env.max_steps_per_trial):
 
             if args.agent_type == 'passive_only':
-                observation = [0, timer_val]
-                percept = agent.percept_preprocess(observation)
-                agent.h_matrix[0, percept] = 1.0
-                agent.h_matrix[1, percept] = 0.0
+                for state_val in range(env.num_states):
+                    observation = [state_val, timer_val]
+                    percept = agent.percept_preprocess(observation)
+                    if state_val == 0:
+                        agent.h_matrix[1, percept] = 0
+                        agent.h_matrix[0, percept] = 1
+                    elif state_val == 1:
+                        agent.h_matrix[1, percept] = 1
+                        agent.h_matrix[0, percept] = 0
 
             else: # 'active_passive'
                 for state_val in range(env.num_states):
@@ -467,8 +482,7 @@ def main(args, sim, load_path=''):
         learning_process = np.append(learning_process, step / model.env.max_steps_per_trial)
 
         if trajectory_file and trajectory_data:
-            header = f"Episode {prev_episodes + ep + 1}, Steps {len(trajectory_data)}"
-            np.savetxt(trajectory_file, np.array(trajectory_data), fmt='%.4f,%.4f,%.8f,%d', delimiter=',', header=header)
+            np.savetxt(trajectory_file, np.array(trajectory_data), fmt='%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f', delimiter=',')
 
         if len(save_directory) > 0:
             # Passa o dicionário 'current_args_dict' para a função de salvamento

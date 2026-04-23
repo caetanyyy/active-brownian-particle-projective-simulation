@@ -49,7 +49,7 @@ class ProjectiveSimulation(object):
         action = self.agent.deliberate(observation)  # Ação do agente
         reward, done = self.env.update_environment(action)  # Atualiza ambiente
         self.agent.learn(reward)  # Aprendizado do agente
-        return done
+        return done, reward
 
     def run_episode(self, max_steps_per_episode, reset_env=True, reset_agent=True, track_trajectory=False):
         """
@@ -74,21 +74,15 @@ class ProjectiveSimulation(object):
         trajectory_data = []
 
         for step in range(max_steps_per_episode):
-            # Se track_trajectory for True, armazena o estado ANTES do passo
+            done, reward = self.run_learning_step()
+            
             if track_trajectory:
                 pos = self.env.r
-                angle = self.env.theta_t
                 state = self.env.state
-                trajectory_data.append([pos[0], pos[1], angle, state])
-            done = self.run_learning_step()
+                target_pos = self.env.target_position
+                trajectory_data.append([step, state, reward, pos[0], pos[1], target_pos[0], target_pos[1]])
 
             if done:
-                # Armazena o estado final após encontrar o alvo
-                if track_trajectory:
-                    pos = self.env.r
-                    angle = self.env.theta_t
-                    state = self.env.state 
-                    trajectory_data.append([pos[0], pos[1], angle, state])
                 break
         
         return step, trajectory_data
