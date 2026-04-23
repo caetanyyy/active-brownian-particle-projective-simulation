@@ -53,9 +53,9 @@ import gc
 import time
 import os
 
-from environments import PsEnvironment
-from agents import PsAgent
-from simulations import ProjectiveSimulation
+from environments.ps_env_abp_target_find import PsEnvironment
+from agents.ps_agent import PsAgent
+from simulations.projective_simulation_iteration import ProjectiveSimulation
 
 env_class = PsEnvironment
 agent_class = PsAgent

@@ -115,7 +115,6 @@ class PsEnvironment(object):
         self.prev_state = 0 #0 ou 1 # guarda o estado anterior
 
         self.timer = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em um estado
-        #self.timer_colision = 0 #inteiro que contabiliza a quantidade de rodadas que o agente está em colisão
 
         self.colision = 0 #0 ou 1, mapeia se o agente teve colisão ou não com a parede
         self.prev_colision = 0 #0 ou 1, mapeia se o agente teve colisão no passo anterior
@@ -157,13 +156,7 @@ class PsEnvironment(object):
         self.E_t = np.array([self.rng.normal(),self.rng.normal()]) #vetor ruído
 
         # Soma dos movimentos:
-        self.dr_dt = self.dr + self.dr_theta
-
-        if self.collision_type == 'repulsive':
-            self.repulsive_k = 0.3  # Constante de força (dureza da parede)
-            self.repulsive_sigma = 1*self.target_radius # Largura da zona de repulsão
-            self.repulsive_cutoff = self.target_radius # Força é zero além desta distância
-            self.repulsive_power = 3
+        self.dr_dt = 0
         
     def reset_rng(self, seed=None):
         """
@@ -228,18 +221,16 @@ class PsEnvironment(object):
         # Posição proposta para o próximo passo
         next_pos = self.r + self.dr_dt
 
-        walls = [ (0, 0, 1), (self.L, 0, -1), (0, 1, 1), (self.L, 1, -1) ]
+        walls = [(0, 0, 1), (self.L, 0, -1), (0, 1, 1), (self.L, 1, -1) ]
 
         for limit, axis, norm_dir in walls:
             if (next_pos[axis] - limit) * norm_dir < 0:
                 self.colision = 1
                 normal_vector = np.zeros(2); normal_vector[axis] = norm_dir
-                
-                # Anula a componente normal apenas do deslocamento ATIVO (dr_theta)
-                dot_product = np.dot(self.dr_theta, normal_vector)
+                # Anula a componente normal do deslocamento
+                dot_product = np.dot(self.dr_dt, normal_vector)
                 self.dr_dt -= dot_product * normal_vector
-                
-                # Reposiciona a partícula na parede para evitar "afundamento"
+                # Reposiciona a partícula na parede
                 self.r[axis] = limit
     
     def target_distance(self):
@@ -337,7 +328,7 @@ class PsEnvironment(object):
         if self.allow_colision:
             if self.collision_type == 'slide':
                 self._handle_sliding_collision()
-            self.r += self.dr_dt
+                self.r += self.dr_dt
 
         # # Caso sem colisão (condições de contorno periódicas)
         else:
