@@ -224,10 +224,11 @@ def read_args():
     )
 
     parser.add_argument(
-        "--colision_reward",
-        help = "Recompensa para o aprendizado da colisão", 
-        type = float_range(0,1),
-        default = 0.005
+        "--colision_counter",
+        help = "O contador de estado reseta ao iniciar ou sair de colisão.",
+        type = bool,
+        default = False,
+        choices = [True, False]
     )
 
     parser.add_argument(
@@ -313,10 +314,8 @@ def damping_params(args):
         }
     }
 
-    idx = np.argmin([abs(args.peclet_number - pe) for pe in damping_param.keys()])
-    idx = list(damping_param.keys())[idx]
-    args.gamma_damping = damping_param[idx]['gamma_damping']
-    args.eta_damping = damping_param[idx]['eta_damping']
+    args.gamma_damping = damping_param[args.peclet_number]['gamma_damping']
+    args.eta_damping = damping_param[args.peclet_number]['eta_damping']
     
     return args
 
@@ -332,8 +331,8 @@ def create_models(args):
         args.tao, 
         args.dt,
         args.target_reward,
-        args.colision_reward,
         allow_colision=bool(args.colision),
+        colision_counter=args.colision_counter,
         collision_type=args.collision_type
     )
     

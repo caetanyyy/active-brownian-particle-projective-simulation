@@ -73,7 +73,7 @@ class PsEnvironment(object):
         tao: float = 1e+4,
         dt: float = 1,
         target_reward: float = 1,
-        colision_reward: float = 0.005,
+        colision_counter: bool = False,
         allow_colision: bool = False,
         collision_type: str = 'slide'
     ):
@@ -87,7 +87,7 @@ class PsEnvironment(object):
         - tao (float): Número máximo de passos por rodada (>1).
         - dt (float): Intervalo de tempo da simulação.
         - target_reward (float): Recompensa por encontrar o alvo.
-        - colision_reward (float): Recompensa por aprendizado de colisão.
+        - colision_counter (bool): Contador de estado reinicia ao sair ou entrar da colisão.
         - allow_colision (bool): Permite colisão com as paredes (True/False).
         """
         # Gerador aleatório da classe:
@@ -118,10 +118,10 @@ class PsEnvironment(object):
 
         self.colision = 0 #0 ou 1, mapeia se o agente teve colisão ou não com a parede
         self.prev_colision = 0 #0 ou 1, mapeia se o agente teve colisão no passo anterior
-
+        self.colision_counter = colision_counter
+        
         #Recompensa
         self.reward = 0 # Inicia a recompensa como zero
-        self.colision_reward = colision_reward # Recompensa por sair do estado ativo em uma colisão
         self.target_reward = target_reward # Recompensa por encontrar o alvo
         self.trial_finished = False # Inicia o episódio
 
@@ -232,6 +232,30 @@ class PsEnvironment(object):
                 self.dr_dt -= dot_product * normal_vector
                 # Reposiciona a partícula na parede
                 self.r[axis] = limit
+                
+    def update_agent_position(self):
+        """
+        Atualiza a posição do agente.
+        Calcula o movimento base e delega o tratamento da colisão para o método específico.
+        """
+        # 1. Calcula o deslocamento base (Browniano + Ativo)
+        self.E_t = np.array([self.rng.normal(), self.rng.normal()])
+        
+        self.dr = np.sqrt(2 * self.D * self.dt) * self.E_t
+        
+        self.dr_dt = self.dr_theta + self.dr
+
+        if self.allow_colision:
+            if self.collision_type == 'slide':
+                self._handle_sliding_collision()
+                self.r += self.dr_dt
+
+        # # Caso sem colisão (condições de contorno periódicas)
+        else:
+            self.r = (self.r + self.dr_dt) % self.L
+            
+        # 3. Calcula a distância final ao alvo
+        self.target_distance()
     
     def target_distance(self):
         """
@@ -270,13 +294,9 @@ class PsEnvironment(object):
         """
         self.trial_finished = False
         self.reward = 0
-        # Recompensa por sair do estado ativo em colisão
-        if self.allow_colision:
-            if (self.prev_colision) & (self.prev_state) & (not self.state):
-                self.reward = self.reward + self.colision_reward
         # Recompensa por encontrar o alvo (apenas no estado BP)
         if (self.distance < self.target_radius) & (not self.state):
-            self.reward = self.reward + self.target_reward
+            self.reward = self.target_reward
             self.trial_finished = True
 
     def update_environment(self, action):
@@ -289,53 +309,39 @@ class PsEnvironment(object):
         Retorno:
         - tuple: (recompensa, flag de término da rodada)
         """
-        self.timer += 1  # Atualiza timer do estado
         self.dr_theta = 0  # Não há movimento ABP
         self.prev_colision = self.colision
-
-        # Se houver ação de troca de estado
+        self.timer += 1
+        
+        # AÇÃO
         if action:
             self.action()  # Troca o estado e reseta o timer
             if self.state == 1:
                 self.reset_agent_ABP()  # Inicia variáveis aleatórias do estado
-        # Se não houver ação mas o estado for ABP
+                
+        # MOVIMENTO
         elif self.state == 1:
             self.update_agent_ABP()  # Atualiza parâmetros do movimento ABP
 
         self.update_agent_position()  # Calcula posição final do agente
-        self.update_reward()  # Calcula recompensa
+        
+        # RECOMPENSA
+        self.update_reward()        
+        
+        if self.trial_finished:
+            return self.reward, self.trial_finished
 
-        # Se atingiu limite de tempo e não finalizou, troca de estado
+        # ATUALIZA FLAG DE COLISAO SE INICIAR OU SAIR DE COLISÃO
+        if self.colision_counter and (self.prev_colision != self.colision):
+            self.timer = 0 
+        
+        # SE ATINGIU LIMITE DE TEMPO, TROCA DE ESTADO E RESETA TIMER
         if (self.timer == self.max_steps_per_trial - 1) and (not self.trial_finished):
             self.action()
             if self.state == 1:
                 self.reset_agent_ABP()
 
         return self.reward, self.trial_finished
-    
-    def update_agent_position(self):
-        """
-        Atualiza a posição do agente.
-        Calcula o movimento base e delega o tratamento da colisão para o método específico.
-        """
-        # 1. Calcula o deslocamento base (Browniano + Ativo)
-        self.E_t = np.array([self.rng.normal(), self.rng.normal()])
-        
-        self.dr = np.sqrt(2 * self.D * self.dt) * self.E_t
-        
-        self.dr_dt = self.dr_theta + self.dr
-
-        if self.allow_colision:
-            if self.collision_type == 'slide':
-                self._handle_sliding_collision()
-                self.r += self.dr_dt
-
-        # # Caso sem colisão (condições de contorno periódicas)
-        else:
-            self.r = (self.r + self.dr_dt) % self.L
-            
-        # 3. Calcula a distância final ao alvo
-        self.target_distance()
 
     def save(self, path):
         """

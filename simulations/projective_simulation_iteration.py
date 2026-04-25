@@ -79,15 +79,16 @@ class ProjectiveSimulation(object):
             if track_trajectory:
                 pos = self.env.r
                 state = self.env.state
+                colision = self.env.colision
                 target_pos = self.env.target_position
-                trajectory_data.append([step, state, reward, pos[0], pos[1], target_pos[0], target_pos[1]])
+                trajectory_data.append([step, state, colision, reward, pos[0], pos[1], target_pos[0], target_pos[1]])
 
             if done:
                 break
         
         return step, trajectory_data
 
-    def fit(self, num_episodes, max_steps_per_episode):
+    def fit(self, num_episodes, max_steps_per_episode, track_trajectory):
         """
         Executa múltiplos episódios da simulação.
 
@@ -100,7 +101,7 @@ class ProjectiveSimulation(object):
         """
         learning_process = np.zeros(num_episodes)
         for ep in range(num_episodes):
-            step = self.run_episode(max_steps_per_episode)
+            step = self.run_episode(max_steps_per_episode, track_trajectory=track_trajectory)
             learning_process[ep] = step / self.env.max_steps_per_trial
         return learning_process
 
