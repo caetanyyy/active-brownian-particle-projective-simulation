@@ -200,26 +200,25 @@ def create_models(args):
     
     return agent, env
 
-def save_data(model, args, learning_process_data, ep, filename_time, prev_episodes, load_path):
-    """Salva os dados como um arquivo CSV estruturado."""
+def save_data(model, args, learning_process, ep, filename_time, prev_episodes, load_path):
+    """
+    Salva os dados do modelo, argumentos e curva de aprendizado.
+    """
     if len(load_path) > 0:
-        save_dir = load_path
+        args['num_episodes'] = ep + prev_episodes
+        model.save(load_path)
+        with open(load_path + '/args.json', 'w') as fp:
+            json.dump(args, fp)
+        np.savetxt(load_path + '/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(load_path + '/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
+
     else:
-        save_dir = os.path.join(args['save_path'], filename_time)
-
-    os.makedirs(save_dir, exist_ok=True)
-    
-    model.save(save_dir)
-
-    args['num_episodes'] = ep + prev_episodes
-    with open(os.path.join(save_dir, 'args.json'), 'w') as fp:
-        json.dump(args, fp, indent=4)
-
-    np.savetxt(os.path.join(save_dir, 'h_matrix.txt'), model.h_matrix(), fmt='%.4f', delimiter=',')
-
-    if learning_process_data:
-        df_learning = pd.DataFrame(learning_process_data)
-        df_learning.to_csv(os.path.join(save_dir, 'learning_process.csv'), index_label='episode')
+        args['num_episodes'] = ep + prev_episodes
+        model.save(args['save_path'] + '/' + filename_time)
+        with open(args['save_path'] + '/' + filename_time +'/args.json', 'w') as fp:
+            json.dump(args, fp)
+        np.savetxt(args['save_path'] + '/' + filename_time +'/learning_process.txt', learning_process, fmt='%.4f', delimiter=',')
+        np.savetxt(args['save_path'] + '/' + filename_time +'/h_matrix.txt', model.h_matrix(), fmt='%.2f', delimiter=',')
 
 def main(args, sim, load_path=''):
     """

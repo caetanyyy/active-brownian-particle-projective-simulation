@@ -129,150 +129,142 @@ class MazeEnvironment(object):
         if new_state == 1:
             self.reset_agent_ABP()
 
-    def update_agent_position(self):
-        """
-        Calcula o deslocamento do agente e lida com colisões no labirinto.
-        """
-        # 1. Calcula o deslocamento proposto no espaço contínuo
-        E_t = self.rng.randn(2)
-        dr_brownian = np.sqrt(2 * self.D * self.dt) * E_t
-        displacement = self.dr_active + dr_brownian
-
-        # 2. Verifica a colisão com o labirinto e corrige o deslocamento
-        displacement, did_collide = self._handle_maze_collision(self.r, displacement)
-        self.colision = 1 if did_collide else 0
-
-        # 3. Aplica o deslocamento final à posição contínua do agente
-        self.r += displacement
-        
-        # 4. Calcula a distância final ao alvo (aqui, sem contorno periódico)
-        self.distance = np.linalg.norm(self.r - self.target_position)
-
-    # SUBSTITUA a sua função _handle_maze_collision por esta nova versão
-
+    # ESTA É A NOVA VERSÃO DA SUA FUNÇÃO _handle_maze_collision
     def _handle_maze_collision(self, current_pos, displacement):
         """
-        Verifica e lida com colisões no labirinto com lógica avançada para movimentos diagonais.
+        Usa a lógica avançada do usuário para determinar a colisão e, em seguida,
+        calcula a POSIÇÃO FINAL correta, incluindo reposicionamento e deslize.
         """
         next_pos = current_pos + displacement
+        did_collide = False
 
-        # Coordenadas dos tiles
         current_tile_col, current_tile_row = self._get_tile_coords(current_pos)
         next_tile_col, next_tile_row = self._get_tile_coords(next_pos)
 
-        # Diferença no movimento dos tiles
         d_col = next_tile_col - current_tile_col
         d_row = next_tile_row - current_tile_row
 
+        # ==============================================================================
+        #      MUDANÇA 1: Introduzir a função auxiliar que faz o trabalho pesado
+        # ==============================================================================
+        def _calculate_final_pos(start_pos, disp, normal):
+            """Calcula a posição final absoluta após uma colisão."""
+            normal = normal.astype(float)
+            norm_val = np.linalg.norm(normal)
+            if norm_val > 0: normal /= norm_val
+            else: return start_pos # Segurança
+
+            # Componente de deslize
+            dot = np.dot(disp, normal)
+            slide_disp = disp - dot * normal
+
+            # Posição final inicializada com o deslize
+            final_pos = start_pos + slide_disp
+
+            # Reposicionamento da componente normal
+            if normal[0] != 0:
+                if normal[0] < 0:
+                    wall_edge = (int(start_pos[0] / self.tile_size_x) + 1) * self.tile_size_x
+                    final_pos[0] = wall_edge - 0.001
+                else:
+                    wall_edge = int(start_pos[0] / self.tile_size_x) * self.tile_size_x
+                    final_pos[0] = wall_edge + 0.001
+            if normal[1] != 0:
+                if normal[1] < 0:
+                    wall_edge = (int(start_pos[1] / self.tile_size_y) + 1) * self.tile_size_y
+                    final_pos[1] = wall_edge - 0.001
+                else:
+                    wall_edge = int(start_pos[1] / self.tile_size_y) * self.tile_size_y
+                    final_pos[1] = wall_edge + 0.001
+
+            return final_pos
+
         # --- CASO 1: SEM MUDANÇA DE TILE ---
-        # Se não mudou de tile, verifica se o tile atual é uma parede (caso de borda)
         if d_col == 0 and d_row == 0:
             if self.maze_grid[current_tile_row, current_tile_col] == 1:
-                # Preso dentro de uma parede, força repulsiva simples
-                return -displacement, True
+                return current_pos - displacement * 0.1, True # Recuo simples
             else:
-                # Movimento ocorreu dentro de um tile válido
-                return displacement, False
+                # MUDANÇA: Retorna a posição final, não o deslocamento
+                return next_pos, False
 
-        # --- CASO 2: MOVIMENTO PARA UM TILE VIZINHO (NÃO DIAGONAL) ---
+        # --- CASO 2: MOVIMENTO PARA UM TILE VIZINHO ---
         is_diagonal_move = (d_col != 0 and d_row != 0)
         if not is_diagonal_move:
-            # Se o tile de destino é uma parede
             if self.maze_grid[next_tile_row, next_tile_col] == 1:
-                did_collide = True
                 normal_vector = np.array([-d_col, -d_row], dtype=float)
-
-                # Física de slide padrão
-                dot_product = np.dot(displacement, normal_vector)
-                corrected_displacement = displacement - dot_product * normal_vector
-                return corrected_displacement, did_collide
+                # MUDANÇA: Chama a função auxiliar para obter a posição final
+                final_pos = _calculate_final_pos(current_pos, displacement, normal_vector)
+                return final_pos, True
             else:
-                # Caminho livre para o tile vizinho
-                return displacement, False
+                return next_pos, False # Caminho livre
 
         # --- CASO 3: MOVIMENTO DIAGONAL ---
         if is_diagonal_move:
-
-            # Helper function para aplicar a física de slide com uma normal específica
-            def get_slide(disp, normal):
-                if np.all(normal == 0): return disp
-                norm = np.linalg.norm(normal)
-                if norm > 0: normal /= norm
-                dot = np.dot(disp, normal)
-                return disp - dot * normal
-
-            # Verifica o estado dos tiles relevantes
+            # A sua 'get_slide' não é mais necessária, pois a nova função faz tudo.
             tile_diagonal_is_wall = (self.maze_grid[next_tile_row, next_tile_col] == 1)
             tile_horizontal_is_wall = (self.maze_grid[current_tile_row, next_tile_col] == 1)
             tile_vertical_is_wall = (self.maze_grid[next_tile_row, current_tile_col] == 1)
 
-            # 1) SE O TILE DIAGONAL É DISPONÍVEL (0)
+            # 1) TILE DIAGONAL DISPONÍVEL (corte de canto)
             if not tile_diagonal_is_wall:
-                # Simula o movimento em X e depois em Y para checar "corte de canto"
-                disp_x = np.array([displacement[0], 0.0])
-                disp_y = np.array([0.0, displacement[1]])
-
-                final_disp = np.zeros(2)
-
-                # Movimento em X
+                pos = np.copy(current_pos)
+                did_collide = False
                 if tile_horizontal_is_wall:
-                    final_disp += get_slide(disp_x, np.array([-d_col, 0.0]))
+                    pos = _calculate_final_pos(pos, np.array([displacement[0], 0.0]), np.array([-d_col, 0.0]))
+                    did_collide = True
                 else:
-                    final_disp += disp_x
-
-                # Movimento em Y
+                    pos[0] += displacement[0]
                 if tile_vertical_is_wall:
-                    final_disp += get_slide(disp_y, np.array([0.0, -d_row]))
+                    pos = _calculate_final_pos(pos, np.array([0.0, displacement[1]]), np.array([0.0, -d_row]))
+                    did_collide = True
                 else:
-                    final_disp += disp_y
+                    pos[1] += displacement[1]
+                return pos, did_collide
 
-                return final_disp, (tile_horizontal_is_wall or tile_vertical_is_wall)
-
-            # 2) SE O TILE DIAGONAL ESTÁ INDISPONÍVEL (1)
+            # 2) TILE DIAGONAL INDISPONÍVEL
             else:
-                # 2.1) Apenas um dos vizinhos está disponível
+                did_collide = True
+                # 2.1) Apenas um vizinho disponível
                 if tile_horizontal_is_wall and not tile_vertical_is_wall:
-                    # O movimento horizontal é bloqueado, apenas o vertical é permitido.
-                    return np.array([0.0, displacement[1]]), True
+                    return _calculate_final_pos(current_pos, displacement, np.array([-d_col, 0.0])), True
                 if not tile_horizontal_is_wall and tile_vertical_is_wall:
-                    # O movimento vertical é bloqueado, apenas o horizontal é permitido.
-                    return np.array([displacement[0], 0.0]), True
-
-                # 2.2) Nenhum dos vizinhos está disponível (canto sólido)
+                    return _calculate_final_pos(current_pos, displacement, np.array([0.0, -d_row])), True
+                # 2.2) Nenhum vizinho disponível (canto sólido)
                 if tile_horizontal_is_wall and tile_vertical_is_wall:
-                    # Trata como se o tile diagonal fosse livre, forçando a colisão com os vizinhos
-                    disp_x = np.array([displacement[0], 0.0])
-                    disp_y = np.array([0.0, displacement[1]])
-
-                    # A colisão com a parede horizontal gera um deslize vertical
-                    slide_from_x_wall = get_slide(disp_x, np.array([-d_col, 0.0]))
-                    # A colisão com a parede vertical gera um deslize horizontal
-                    slide_from_y_wall = get_slide(disp_y, np.array([0.0, -d_row]))
-
-                    # Como ambas as paredes existem, o movimento é zerado
-                    return slide_from_x_wall + slide_from_y_wall, True
-
-                # 2.3) Ambos os vizinhos estão disponíveis
+                    return _calculate_final_pos(current_pos, displacement, np.array([-d_col, -d_row])), True
+                # 2.3) Ambos os vizinhos disponíveis
                 if not tile_horizontal_is_wall and not tile_vertical_is_wall:
-                    # Caminho 1: Mover em X, depois em Y
-                    disp_x_first = np.copy(displacement)
-                    # Colisão com o canto diagonal vindo do lado
-                    disp_x_first = get_slide(disp_x_first, np.array([0.0, -d_row]))
-
-                    # Caminho 2: Mover em Y, depois em X
-                    disp_y_first = np.copy(displacement)
-                    # Colisão com o canto diagonal vindo de baixo/cima
-                    disp_y_first = get_slide(disp_y_first, np.array([-d_col, 0.0]))
-
-                    # Compara qual caminho resultou em um maior deslocamento final
-                    if np.linalg.norm(disp_x_first) > np.linalg.norm(disp_y_first):
-                        return disp_x_first, True
+                    pos_x_first = _calculate_final_pos(current_pos, displacement, np.array([0.0, -d_row]))
+                    pos_y_first = _calculate_final_pos(current_pos, displacement, np.array([-d_col, 0.0]))
+                    if np.linalg.norm(pos_x_first - current_pos) > np.linalg.norm(pos_y_first - current_pos):
+                        return pos_x_first, True
                     else:
-                        return disp_y_first, True
+                        return pos_y_first, True
 
-        # Se nenhuma das condições acima foi atendida, não há colisão.
-        return displacement, False
+        # Se nenhuma das condições acima foi atendida, retorna a posição final não corrigida.
+        return next_pos, False
 
+
+    def update_agent_position(self):
+        """
+        Calcula o deslocamento do agente e atualiza sua posição final
+        usando a lógica de colisão do labirinto.
+        """
+        # 1. Calcula o deslocamento proposto
+        E_t = self.rng.randn(2)
+        dr_brownian = np.sqrt(2 * self.D * self.dt) * E_t
+        displacement = self.dr_active + dr_brownian
+
+        # 2. A função de colisão agora retorna a POSIÇÃO FINAL absoluta
+        final_position, did_collide = self._handle_maze_collision(self.r, displacement)
+
+        self.colision = 1 if did_collide else 0
+
+        # 3. ATRIBUI a posição final, não soma mais um deslocamento
+        self.r = final_position
+
+        # 4. Calcula a distância
+        self.distance = np.linalg.norm(self.r - self.target_position)
 
     def update_environment(self, action):
         """Atualiza o ambiente conforme a ação do agente."""
